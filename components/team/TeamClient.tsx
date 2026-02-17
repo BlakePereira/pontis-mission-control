@@ -75,7 +75,7 @@ const claraTree: Agent = {
           title: "Coding",
           description: "Writes, reviews, and debugs code autonomously",
           model: "OpenAI Codex CLI",
-          status: "setup",
+          status: "active",
         },
         {
           emoji: "🔍",

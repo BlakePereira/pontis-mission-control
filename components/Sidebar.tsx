@@ -18,6 +18,7 @@ const nav = [
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
   { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
+  { href: "/knowledge", label: "Knowledge", icon: BookOpen, emoji: "📚" },
   { href: "/bible", label: "Bible", icon: BookOpen, emoji: "📖" },
   { href: "/loops", label: "Open Loops", icon: ListChecks, emoji: "🔁" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
