@@ -9,12 +9,16 @@ import {
   Kanban,
   ListChecks,
   Bot,
+  Users,
+  BookOpen,
 } from "lucide-react";
 
 const nav = [
   { href: "/", label: "Command Center", icon: LayoutDashboard, emoji: "🏠" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
+  { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
+  { href: "/bible", label: "Bible", icon: BookOpen, emoji: "📖" },
   { href: "/loops", label: "Open Loops", icon: ListChecks, emoji: "🔁" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
 ];

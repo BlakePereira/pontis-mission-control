@@ -9,6 +9,7 @@ import {
   ListChecks,
   Bot,
   AlertCircle,
+  Activity,
 } from "lucide-react";
 
 interface StripeData {
@@ -179,6 +180,21 @@ export default function DashboardClient() {
           </Badge>
           <Badge className="bg-[#2a2a2a] text-[#888] border-[#3a3a3a] text-xs">
             Since Jan 27, 2026
+          </Badge>
+        </div>
+      </MetricCard>
+
+      {/* Clara's Focus */}
+      <MetricCard
+        title="Clara's Focus"
+        value="Monitoring"
+        sub="Next: Daily Brief at 6:00 AM MT"
+        icon={Activity}
+        accent="bg-purple-500/10"
+      >
+        <div className="mt-3 flex gap-2 flex-wrap">
+          <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-xs">
+            ● Strategy Mode
           </Badge>
         </div>
       </MetricCard>
