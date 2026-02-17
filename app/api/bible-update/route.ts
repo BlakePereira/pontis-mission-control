@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+
+const SUPABASE_URL = process.env.SUPABASE_URL!
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export const runtime = 'nodejs'
 
@@ -10,26 +11,21 @@ export async function POST(request: Request) {
     if (!updateRequest || typeof updateRequest !== 'string') {
       return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 })
     }
-
-    const workspacePath = process.env.WORKSPACE_PATH || '/Users/claraadkinson/.openclaw/workspace'
-    const filePath = path.join(workspacePath, 'bank', 'bible-update-requests.md')
-
-    const timestamp = new Date().toISOString()
-    const entry = `\n## ${timestamp}\n\n${updateRequest.trim()}\n`
-
-    // Ensure file exists with a header, then append
-    try {
-      await fs.access(filePath)
-    } catch {
-      await fs.writeFile(filePath, '# Bible Update Requests\n\n', 'utf-8')
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/bible_update_requests`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ request: updateRequest })
+    })
+    if (res.ok || res.status === 201) {
+      return NextResponse.json({ ok: true })
     }
-
-    await fs.appendFile(filePath, entry, 'utf-8')
-    return NextResponse.json({ ok: true })
-  } catch {
-    return NextResponse.json({
-      ok: false,
-      error: 'File not accessible on this instance',
-    }, { status: 500 })
+    return NextResponse.json({ ok: false, error: await res.text() }, { status: 500 })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
 }

@@ -1,21 +1,27 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+
+const SUPABASE_URL = process.env.SUPABASE_URL!
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    const workspacePath = process.env.WORKSPACE_PATH || '/Users/claraadkinson/.openclaw/workspace'
-    const filePath = path.join(workspacePath, 'memory', 'pontis-brain.md')
-    const content = await fs.readFile(filePath, 'utf-8')
-    const stat = await fs.stat(filePath)
-    return NextResponse.json({ content, lastModified: stat.mtime.toISOString() })
-  } catch {
-    return NextResponse.json({
-      content: '',
-      error: 'File not accessible on this instance',
-      lastModified: null,
-    })
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/documents?key=eq.pontis-bible&select=content,updated_at`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const data = await res.json()
+    if (data && data[0]) {
+      return NextResponse.json({ content: data[0].content, lastModified: data[0].updated_at })
+    }
+    return NextResponse.json({ content: '', error: 'Document not found' })
+  } catch (err) {
+    return NextResponse.json({ content: '', error: String(err) })
   }
 }
