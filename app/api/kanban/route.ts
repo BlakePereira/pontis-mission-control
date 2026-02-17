@@ -1,40 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-function getSupabase() {
-  return createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const headers = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+  "Content-Type": "application/json",
+};
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
-    const boardId = searchParams.get("board_id");
+    const boardSlug = searchParams.get("board");
 
-    let query = supabase
-      .from("kanban_tasks")
-      .select("*")
-      .order("position", { ascending: true });
+    // Fetch boards
+    const boardsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/kanban_boards?select=*&order=display_order.asc`,
+      { headers }
+    );
+    const boards = await boardsRes.json();
 
-    if (boardId) {
-      query = query.eq("board_id", parseInt(boardId));
+    // Fetch tasks
+    let tasksUrl = `${SUPABASE_URL}/rest/v1/kanban_tasks?select=*&archived=eq.false&order=created_at.asc`;
+    if (boardSlug) {
+      tasksUrl += `&board=eq.${encodeURIComponent(boardSlug)}`;
+    }
+    const tasksRes = await fetch(tasksUrl, { headers });
+    const tasks = await tasksRes.json();
+
+    if (!Array.isArray(tasks)) {
+      return NextResponse.json({ error: JSON.stringify(tasks), tasks: [], boards: Array.isArray(boards) ? boards : [] }, { status: 200 });
     }
 
-    const { data: tasks, error } = await query;
-    if (error) throw error;
-
-    const { data: boards, error: bErr } = await supabase
-      .from("kanban_boards")
-      .select("*")
-      .order("id");
-    if (bErr) throw bErr;
-
-    return NextResponse.json({ tasks, boards });
+    return NextResponse.json({ tasks, boards: Array.isArray(boards) ? boards : [] });
   } catch (err: unknown) {
     const error = err as Error;
     return NextResponse.json({ error: error.message, tasks: [], boards: [] }, { status: 200 });
@@ -43,28 +44,25 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = getSupabase();
     const body = await req.json();
-    const { title, description, status, board_id, assigned_to } = body;
+    const { title, description, status, board, assignee, priority } = body;
 
-    // Get max position for this board
-    const { data: existing } = await supabase
-      .from("kanban_tasks")
-      .select("position")
-      .eq("board_id", board_id)
-      .order("position", { ascending: false })
-      .limit(1);
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/kanban_tasks`, {
+      method: "POST",
+      headers: { ...headers, Prefer: "return=representation" },
+      body: JSON.stringify({
+        title,
+        description: description || "",
+        status: status || "backlog",
+        board,
+        assignee: assignee || "",
+        priority: priority || "medium",
+        archived: false,
+      }),
+    });
 
-    const position = existing && existing.length > 0 ? (existing[0].position || 0) + 1 : 0;
-
-    const { data, error } = await supabase
-      .from("kanban_tasks")
-      .insert([{ title, description, status: status || "todo", board_id, assigned_to, position }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json({ task: data });
+    const data = await res.json();
+    return NextResponse.json({ task: Array.isArray(data) ? data[0] : data });
   } catch (err: unknown) {
     const error = err as Error;
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -73,19 +71,20 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = getSupabase();
     const body = await req.json();
     const { id, ...updates } = body;
 
-    const { data, error } = await supabase
-      .from("kanban_tasks")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/kanban_tasks?id=eq.${id}`,
+      {
+        method: "PATCH",
+        headers: { ...headers, Prefer: "return=representation" },
+        body: JSON.stringify(updates),
+      }
+    );
 
-    if (error) throw error;
-    return NextResponse.json({ task: data });
+    const data = await res.json();
+    return NextResponse.json({ task: Array.isArray(data) ? data[0] : data });
   } catch (err: unknown) {
     const error = err as Error;
     return NextResponse.json({ error: error.message }, { status: 500 });
