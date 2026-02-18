@@ -17,6 +17,10 @@ Paste each file's contents into the SQL editor and click Run.
 | `003-security-council.sql` | `security_scans` + `security_findings` tables for Security Council tab | ✅ Applied Feb 18, 2026 |
 | `004-agent-activity.sql` | `agent_activity` table for War Room live status + seed data | ✅ Applied Feb 17, 2026 |
 | `005-agent-activity-realtime.sql` | Enable Supabase Realtime publication for `agent_activity` | ✅ Applied Feb 17, 2026 |
+| `006-cron-jobs.sql` | `cron_jobs` table for Cron Jobs tab | ✅ Applied |
+| `007-usage-logs.sql` | `usage_logs` table for Model Usage dashboard | ✅ Applied |
+| `008-sessions-log.sql` | `sessions_log` table for Sessions page | ✅ Applied |
+| `009-partner-crm.sql` | `crm_partners`, `crm_contacts`, `crm_interactions`, `crm_action_items` tables for Partner CRM | ✅ Applied Feb 18, 2026 |
 
 ---
 
@@ -25,7 +29,7 @@ Paste each file's contents into the SQL editor and click Run.
 Run in this exact order:
 
 ```
-000 → 001 → 002 → 003 → 004 → 005
+000 → 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009
 ```
 
 Each file is idempotent (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`) — safe to re-run.
@@ -59,3 +63,15 @@ Per-API-call usage records (model, tokens, cost). Powers the Model Usage tracker
 
 ### `sessions_log`
 Per-session summaries synced from JSONL transcripts. Powers the Sessions page with stats, filters, and slide-in detail panel.
+
+### `crm_partners`
+Monument company CRM — company profiles, pipeline status, health scores, next actions.
+
+### `crm_contacts`
+People at each partner company. Linked to `crm_partners` via `partner_id`.
+
+### `crm_interactions`
+Every touchpoint — calls, emails, meetings, demos, site visits, notes. Linked to partners and optionally contacts.
+
+### `crm_action_items`
+Follow-up tasks and next steps. Linked to partners with priority, assignee, due date, and completion tracking.

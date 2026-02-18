@@ -15,11 +15,13 @@ import {
   Clock,
   BarChart2,
   Activity,
+  Handshake,
 } from "lucide-react";
 
 const nav = [
   { href: "/", label: "Command Center", icon: LayoutDashboard, emoji: "🏠" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
+  { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
   { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen, emoji: "📚" },
