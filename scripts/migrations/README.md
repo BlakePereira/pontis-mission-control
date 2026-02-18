@@ -50,6 +50,12 @@ Individual findings from security scans. Linked to a scan via `scan_id`. Include
 Live agent status for the War Room visualization. Updated by Clara in real-time via the update-agent-status script.
 - Realtime subscription enabled via `supabase_realtime` publication
 - `REPLICA IDENTITY FULL` required for Realtime to send full row data
-| `006-cron-jobs.sql` | `cron_jobs` table for Cron Jobs tab | ✅ Applied |
-| `007-usage-logs.sql` | `usage_logs` + `usage_collector_state` tables for Model Usage tracker | ✅ Applied Feb 18, 2026 |
-| `008-sessions-log.sql` | `sessions_log` table for Sessions page | ⏳ Needs to be applied via Supabase SQL editor |
+
+### `cron_jobs`
+Scheduled cron job definitions synced from OpenClaw. Displays in the Cron Jobs tab.
+
+### `usage_logs`
+Per-API-call usage records (model, tokens, cost). Powers the Model Usage tracker dashboard.
+
+### `sessions_log`
+Per-session summaries synced from JSONL transcripts. Powers the Sessions page with stats, filters, and slide-in detail panel.
