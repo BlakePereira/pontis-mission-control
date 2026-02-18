@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, ExternalLink, Trash2, Sparkles, Target, BookOpen } from "lucide-react";
+import { Loader2, Search, X, ExternalLink, Trash2, Sparkles, Target, BookOpen, Pencil } from "lucide-react";
 
 interface KnowledgeItem {
   id: string;
@@ -364,6 +364,9 @@ export default function KnowledgeClient() {
   const [isSearching, setIsSearching] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
   const [activeTab, setActiveTab] = useState<ActiveTab>("browse");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editSummary, setEditSummary] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     fetchItems();
@@ -470,6 +473,29 @@ export default function KnowledgeClient() {
     setItems((prev) => prev.filter((item) => item.id !== id));
     setSearchResults((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
     setSelectedItem(null);
+  }
+
+  async function handleSaveSummary(itemId: string) {
+    setSaveStatus("saving");
+    try {
+      const res = await fetch("/api/knowledge/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: itemId, summary: editSummary }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setItems(prev => prev.map(i => i.id === itemId ? { ...i, summary: editSummary } : i));
+        if (selectedItem?.id === itemId) setSelectedItem(prev => prev ? { ...prev, summary: editSummary } : prev);
+        setEditingId(null);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 2000);
+      } else {
+        setSaveStatus("error");
+      }
+    } catch {
+      setSaveStatus("error");
+    }
   }
 
   const activeItems = useMemo(() => {
@@ -729,11 +755,62 @@ export default function KnowledgeClient() {
                 <p>Added by: {selectedItem.added_by || "unknown"}</p>
               </div>
 
-              <div className="mt-6">
-                <p className="text-xs text-[#666] uppercase tracking-wider mb-2">Summary</p>
-                <p className="text-[#ccc] leading-relaxed whitespace-pre-wrap">
-                  {selectedItem.summary || "No summary available."}
-                </p>
+              <div className="mt-6 group/summary">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs text-[#666] uppercase tracking-wider">Summary</p>
+                  {editingId !== selectedItem.id && (
+                    <button
+                      onClick={() => {
+                        setEditingId(selectedItem.id);
+                        setEditSummary(selectedItem.summary || "");
+                        setSaveStatus("idle");
+                      }}
+                      className="opacity-0 group-hover/summary:opacity-100 transition-opacity text-[#555] hover:text-[#aaa]"
+                      aria-label="Edit summary"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {editingId === selectedItem.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editSummary}
+                      onChange={(e) => setEditSummary(e.target.value)}
+                      rows={4}
+                      className="w-full resize-none rounded-md bg-gray-800/50 border border-gray-700 text-gray-200 text-sm p-3 leading-relaxed focus:outline-none focus:border-[#10b981]/60"
+                      style={{ minHeight: "6rem", fieldSizing: "content" } as React.CSSProperties}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleSaveSummary(selectedItem.id)}
+                        disabled={saveStatus === "saving"}
+                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-[#10b981] hover:bg-[#0ea572] text-black disabled:opacity-50"
+                      >
+                        {saveStatus === "saving" ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(null); setSaveStatus("idle"); }}
+                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-[#1a1a1a] border border-[#2a2a2a] text-[#aaa] hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      {saveStatus === "error" && (
+                        <span className="text-xs text-red-400">Save failed</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-[#ccc] leading-relaxed whitespace-pre-wrap">
+                      {selectedItem.summary || "No summary available."}
+                    </p>
+                    {saveStatus === "saved" && (
+                      <p className="text-xs text-[#10b981] animate-pulse">✓ Saved</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Entities */}
