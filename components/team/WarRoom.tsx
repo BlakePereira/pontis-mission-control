@@ -235,7 +235,7 @@ const agents: Agent[] = [
     emoji: "📊",
     name: "Analyst",
     title: "Data & Reporting",
-    model: "claude-haiku-3-5",
+    model: "claude-haiku-4-5",
     zone: "Data Room",
     status: "available",
     color: {
@@ -261,6 +261,38 @@ const agents: Agent[] = [
     capabilities: "Stripe analytics, Supabase queries, revenue tracking, dashboards",
   },
 ];
+
+function ModelTierBadge({ model }: { model: string }) {
+  const m = model.toLowerCase();
+  if (m.includes("opus")) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 font-mono">
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+        OPUS · Deep Reasoning
+      </span>
+    );
+  }
+  if (m.includes("haiku")) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-teal-950/60 border border-teal-500/30 text-teal-300 font-mono">
+        <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+        HAIKU · Fast &amp; Efficient
+      </span>
+    );
+  }
+  if (m.includes("sonnet")) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        SONNET · Balanced
+      </span>
+    );
+  }
+  // Non-Claude models (Codex, Gemini)
+  return (
+    <span className="text-[#737373] font-mono truncate">{model}</span>
+  );
+}
 
 interface AgentStationProps {
   agent: Agent;
@@ -328,7 +360,7 @@ function AgentStation({ agent, liveStatus }: AgentStationProps) {
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3 text-[10px]">
-        <span className="text-[#737373] font-mono truncate">{agent.model}</span>
+        <ModelTierBadge model={agent.model} />
         <span className="text-[#6f6f6f] uppercase tracking-wide truncate">{agent.zone}</span>
       </div>
 
@@ -471,6 +503,18 @@ export default function WarRoom() {
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
         </div>
         <p className="text-sm text-[#8ea697] mt-1">Pontis Agent Network</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
+          <span className="text-[9px] uppercase tracking-widest text-[#555] mr-1">Model Tiers</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-teal-950/60 border border-teal-500/30 text-teal-300 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />HAIKU · Fast &amp; Efficient
+          </span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />SONNET · Balanced
+          </span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />OPUS · Deep Reasoning
+          </span>
+        </div>
       </div>
 
       <section className="space-y-3">
