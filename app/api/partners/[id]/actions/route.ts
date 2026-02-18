@@ -14,10 +14,10 @@ const sbHeaders = {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/crm_action_items?partner_id=eq.${id}&select=*&order=due_date.asc`,
       { headers: sbHeaders }
@@ -38,10 +38,10 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
 
     const payload = {
@@ -75,10 +75,10 @@ export async function POST(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: partnerId } = params;
+    const { id: partnerId } = await params;
     const body = await req.json();
     const actionId = body.id;
 

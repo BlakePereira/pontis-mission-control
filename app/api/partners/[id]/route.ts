@@ -23,10 +23,10 @@ function calcHealthScore(lastContactAt: string | null): number {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const [partnerRes, contactsRes, interactionsRes, actionsRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/crm_partners?id=eq.${id}&select=*`, { headers: sbHeaders }),
@@ -62,10 +62,10 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
 
     // Auto-calculate health if last_contact_at changed
@@ -96,10 +96,10 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/crm_partners?id=eq.${id}`, {
       method: "DELETE",

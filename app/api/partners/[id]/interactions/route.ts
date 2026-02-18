@@ -14,10 +14,10 @@ const sbHeaders = {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/crm_interactions?partner_id=eq.${id}&select=*&order=interaction_date.desc`,
       { headers: sbHeaders }
@@ -38,10 +38,10 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
 
     const interactionDate = body.interaction_date ?? new Date().toISOString();
