@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
+  Calendar,
   Building2,
   Kanban,
   ListChecks,
@@ -20,6 +21,7 @@ import {
 
 const nav = [
   { href: "/", label: "Command Center", icon: LayoutDashboard, emoji: "🏠" },
+  { href: "/planning", label: "Planning", icon: Calendar, emoji: "🗓️" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
