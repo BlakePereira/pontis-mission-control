@@ -12,6 +12,7 @@ import {
   Users,
   BookOpen,
   Shield,
+  Clock,
 } from "lucide-react";
 
 const nav = [
@@ -23,6 +24,7 @@ const nav = [
   { href: "/bible", label: "Bible", icon: BookOpen, emoji: "📖" },
   { href: "/loops", label: "Open Loops", icon: ListChecks, emoji: "🔁" },
   { href: "/security", label: "Security", icon: Shield, emoji: "🛡️" },
+  { href: "/crons", label: "Cron Jobs", icon: Clock, emoji: "⏰" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
 ];
 
