@@ -11,6 +11,7 @@ import {
   Bot,
   Users,
   BookOpen,
+  Shield,
 } from "lucide-react";
 
 const nav = [
@@ -21,6 +22,7 @@ const nav = [
   { href: "/knowledge", label: "Knowledge", icon: BookOpen, emoji: "📚" },
   { href: "/bible", label: "Bible", icon: BookOpen, emoji: "📖" },
   { href: "/loops", label: "Open Loops", icon: ListChecks, emoji: "🔁" },
+  { href: "/security", label: "Security", icon: Shield, emoji: "🛡️" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
 ];
 
@@ -49,6 +51,19 @@ function ClockDisplay() {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [securityCriticalCount, setSecurityCriticalCount] = useState(0);
+
+  useEffect(() => {
+    // Check for critical security findings once on mount
+    fetch("/api/security/findings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.scan?.critical_count) {
+          setSecurityCriticalCount(data.scan.critical_count);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-[#0f0f0f] border-r border-[#2a2a2a] flex flex-col z-50">
@@ -67,6 +82,7 @@ export default function Sidebar() {
       <nav className="flex-1 p-3 space-y-1">
         {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
+          const showBadge = href === "/security" && securityCriticalCount > 0;
           return (
             <Link
               key={href}
@@ -78,7 +94,12 @@ export default function Sidebar() {
               }`}
             >
               <Icon size={16} />
-              {label}
+              <span className="flex-1">{label}</span>
+              {showBadge && (
+                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                  {securityCriticalCount}
+                </span>
+              )}
             </Link>
           );
         })}
