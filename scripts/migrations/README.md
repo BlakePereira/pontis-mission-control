@@ -21,6 +21,7 @@ Paste each file's contents into the SQL editor and click Run.
 | `007-usage-logs.sql` | `usage_logs` table for Model Usage dashboard | ✅ Applied |
 | `008-sessions-log.sql` | `sessions_log` table for Sessions page | ✅ Applied |
 | `009-partner-crm.sql` | `crm_partners`, `crm_contacts`, `crm_interactions`, `crm_action_items` tables for Partner CRM | ✅ Applied Feb 18, 2026 |
+| `010-partner-type.sql` | Add `partner_type` column to `crm_partners` (monument_company / fulfillment_partner) + index | ✅ Applied Feb 18, 2026 |
 
 ---
 
@@ -29,7 +30,7 @@ Paste each file's contents into the SQL editor and click Run.
 Run in this exact order:
 
 ```
-000 → 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009
+000 → 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010
 ```
 
 Each file is idempotent (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`) — safe to re-run.
