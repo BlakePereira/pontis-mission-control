@@ -14,6 +14,7 @@ import {
   Shield,
   Clock,
   BarChart2,
+  Activity,
 } from "lucide-react";
 
 const nav = [
@@ -26,6 +27,7 @@ const nav = [
   { href: "/loops", label: "Open Loops", icon: ListChecks, emoji: "🔁" },
   { href: "/security", label: "Security", icon: Shield, emoji: "🛡️" },
   { href: "/crons", label: "Cron Jobs", icon: Clock, emoji: "⏰" },
+  { href: "/sessions", label: "Sessions", icon: Activity, emoji: "⚡" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
   { href: "/usage", label: "Usage", icon: BarChart2, emoji: "📊" },
 ];
