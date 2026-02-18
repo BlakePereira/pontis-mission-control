@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const health = searchParams.get("health");
     const search = searchParams.get("search");
     const assignee = searchParams.get("assignee");
+    const partnerType = searchParams.get("partnerType");
 
     let url = `${SUPABASE_URL}/rest/v1/crm_partners?select=*,crm_contacts(id,name,role,email,phone,preferred_contact_method)&order=created_at.desc&limit=500`;
 
@@ -36,6 +37,9 @@ export async function GET(req: NextRequest) {
     }
     if (assignee && assignee !== "all") {
       url += `&next_action_assignee=eq.${encodeURIComponent(assignee)}`;
+    }
+    if (partnerType && partnerType !== "all") {
+      url += `&partner_type=eq.${encodeURIComponent(partnerType)}`;
     }
     if (search) {
       url += `&name=ilike.${encodeURIComponent(`%${search}%`)}`;
@@ -89,6 +93,7 @@ export async function POST(req: NextRequest) {
       website: body.website ?? null,
       phone: body.phone ?? null,
       email: body.email ?? null,
+      partner_type: body.partner_type ?? "monument_company",
       pipeline_status: body.pipeline_status ?? "prospect",
       lead_source: body.lead_source ?? null,
       total_medallions_ordered: body.total_medallions_ordered ?? 0,

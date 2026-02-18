@@ -19,6 +19,7 @@ interface Partner {
   website: string | null;
   phone: string | null;
   email: string | null;
+  partner_type: "monument_company" | "fulfillment_partner";
   pipeline_status: string;
   lead_source: string | null;
   total_medallions_ordered: number;
@@ -94,6 +95,12 @@ const PIPELINE_STATUSES = [
   { key: "lost", label: "Lost" },
 ];
 
+const PARTNER_TYPES = [
+  { key: "all", label: "All Partners" },
+  { key: "monument_company", label: "Monument Companies" },
+  { key: "fulfillment_partner", label: "Fulfillment Partners" },
+];
+
 const HEALTH_FILTERS = [
   { key: "all", label: "All" },
   { key: "healthy", label: "Healthy" },
@@ -146,6 +153,11 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function toDateInputValue(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
 function formatMRR(mrr: number | string): string {
   const n = typeof mrr === "string" ? parseFloat(mrr) : mrr;
   if (!n || isNaN(n)) return "—";
@@ -187,6 +199,16 @@ function outcomeBadgeClass(outcome: string | null): string {
 
 function statusLabel(s: string): string {
   return PIPELINE_STATUSES.find((p) => p.key === s)?.label || s;
+}
+
+function partnerTypeLabel(type: string): string {
+  if (type === "fulfillment_partner") return "Fulfillment";
+  return "Monument";
+}
+
+function partnerTypeBadgeClass(type: string): string {
+  if (type === "fulfillment_partner") return "bg-orange-900/30 text-orange-300 border-orange-700/40";
+  return "bg-emerald-900/30 text-emerald-300 border-emerald-700/40";
 }
 
 function primaryContact(partner: Partner): string {
@@ -234,7 +256,7 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
 function AddPartnerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (p: Partner) => void }) {
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "", territory: "",
-    phone: "", email: "", website: "", pipeline_status: "prospect",
+    phone: "", email: "", website: "", partner_type: "monument_company", pipeline_status: "prospect",
     lead_source: "", notes: "",
   });
   const [saving, setSaving] = useState(false);
@@ -296,8 +318,16 @@ function AddPartnerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <FormInput label="Territory" value={form.territory} onChange={(v) => set("territory", v)} placeholder="e.g. TX, OK, NM" />
 
           <div className="grid grid-cols-2 gap-3">
+            <FormSelect label="Partner Type" value={form.partner_type} onChange={(v) => set("partner_type", v)}
+              options={[
+                { value: "monument_company", label: "Monument Company" },
+                { value: "fulfillment_partner", label: "Fulfillment Partner" },
+              ]} />
             <FormSelect label="Pipeline Status" value={form.pipeline_status} onChange={(v) => set("pipeline_status", v)}
               options={PIPELINE_STATUSES.filter((s) => s.key !== "all").map((s) => ({ value: s.key, label: s.label }))} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <FormSelect label="Lead Source" value={form.lead_source} onChange={(v) => set("lead_source", v)}
               options={[
                 { value: "", label: "— Select —" },
@@ -432,12 +462,14 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
       website: partner.website || "",
       phone: partner.phone || "",
       email: partner.email || "",
+      partner_type: partner.partner_type,
       pipeline_status: partner.pipeline_status,
       lead_source: partner.lead_source || "",
       total_medallions_ordered: partner.total_medallions_ordered,
       mrr: partner.mrr,
+      last_contact_at: toDateInputValue(partner.last_contact_at),
       next_action: partner.next_action || "",
-      next_action_due: partner.next_action_due || "",
+      next_action_due: toDateInputValue(partner.next_action_due),
       next_action_assignee: partner.next_action_assignee || "",
       notes: partner.notes || "",
     });
@@ -447,14 +479,31 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
   const saveEdit = async () => {
     setSavingEdit(true);
     try {
+      const payload = {
+        ...editForm,
+        address: editForm.address || null,
+        city: editForm.city || null,
+        state: editForm.state || null,
+        zip: editForm.zip || null,
+        territory: editForm.territory || null,
+        website: editForm.website || null,
+        phone: editForm.phone || null,
+        email: editForm.email || null,
+        lead_source: editForm.lead_source || null,
+        next_action: editForm.next_action || null,
+        next_action_assignee: editForm.next_action_assignee || null,
+        notes: editForm.notes || null,
+        last_contact_at: editForm.last_contact_at ? new Date(String(editForm.last_contact_at)).toISOString() : null,
+        next_action_due: editForm.next_action_due ? new Date(String(editForm.next_action_due)).toISOString() : null,
+      };
       const res = await fetch(`/api/partners/${partner.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
-        const updated = data.partner || { ...partner, ...editForm };
+        const updated = data.partner || { ...partner, ...payload };
         setPartner(updated);
         onUpdated(updated);
         setEditing(false);
@@ -493,6 +542,9 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
             <h2 className="text-lg font-bold text-white truncate">{partner.name}</h2>
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${partnerTypeBadgeClass(partner.partner_type)}`}>
+              {partnerTypeLabel(partner.partner_type)}
+            </span>
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${statusBadgeClass(partner.pipeline_status)}`}>
               {statusLabel(partner.pipeline_status)}
             </span>
@@ -521,6 +573,12 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
         <div className="p-5 border-b border-[#2a2a2a] bg-[#111] overflow-y-auto max-h-[50vh] flex-shrink-0">
           <div className="space-y-3">
             <FormInput label="Name" value={String(editForm.name || "")} onChange={(v) => setEditForm((f) => ({ ...f, name: v }))} />
+            <FormInput label="Address" value={String(editForm.address || "")} onChange={(v) => setEditForm((f) => ({ ...f, address: v }))} />
+            <div className="grid grid-cols-3 gap-3">
+              <FormInput label="City" value={String(editForm.city || "")} onChange={(v) => setEditForm((f) => ({ ...f, city: v }))} />
+              <FormInput label="State" value={String(editForm.state || "")} onChange={(v) => setEditForm((f) => ({ ...f, state: v }))} />
+              <FormInput label="ZIP" value={String(editForm.zip || "")} onChange={(v) => setEditForm((f) => ({ ...f, zip: v }))} />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <FormInput label="Phone" value={String(editForm.phone || "")} onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))} />
               <FormInput label="Email" value={String(editForm.email || "")} onChange={(v) => setEditForm((f) => ({ ...f, email: v }))} />
@@ -528,9 +586,17 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
             <FormInput label="Website" value={String(editForm.website || "")} onChange={(v) => setEditForm((f) => ({ ...f, website: v }))} />
             <FormInput label="Territory" value={String(editForm.territory || "")} onChange={(v) => setEditForm((f) => ({ ...f, territory: v }))} />
             <div className="grid grid-cols-2 gap-3">
+              <FormSelect label="Partner Type" value={String(editForm.partner_type || "monument_company")}
+                onChange={(v) => setEditForm((f) => ({ ...f, partner_type: v as Partner["partner_type"] }))}
+                options={[
+                  { value: "monument_company", label: "Monument Company" },
+                  { value: "fulfillment_partner", label: "Fulfillment Partner" },
+                ]} />
               <FormSelect label="Status" value={String(editForm.pipeline_status || "prospect")}
                 onChange={(v) => setEditForm((f) => ({ ...f, pipeline_status: v }))}
                 options={PIPELINE_STATUSES.filter((s) => s.key !== "all").map((s) => ({ value: s.key, label: s.label }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <FormSelect label="Lead Source" value={String(editForm.lead_source || "")}
                 onChange={(v) => setEditForm((f) => ({ ...f, lead_source: v }))}
                 options={[
@@ -541,6 +607,20 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
                   { value: "event", label: "Event" },
                   { value: "research", label: "Research" },
                 ]} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormInput
+                label="Last Contact"
+                value={String(editForm.last_contact_at || "")}
+                onChange={(v) => setEditForm((f) => ({ ...f, last_contact_at: v }))}
+                type="date"
+              />
+              <FormInput
+                label="Next Action Due"
+                value={String(editForm.next_action_due || "")}
+                onChange={(v) => setEditForm((f) => ({ ...f, next_action_due: v }))}
+                type="date"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FormInput label="Next Action" value={String(editForm.next_action || "")} onChange={(v) => setEditForm((f) => ({ ...f, next_action: v }))} />
@@ -625,6 +705,12 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
 
                 {/* Business Metrics */}
                 <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#1a1a1a] rounded-xl p-4">
+                    <p className="text-[10px] text-[#555] uppercase tracking-wider mb-1">Partner Type</p>
+                    <span className={`inline-flex text-[10px] font-medium px-2 py-0.5 rounded-full border ${partnerTypeBadgeClass(partner.partner_type)}`}>
+                      {partnerTypeLabel(partner.partner_type)}
+                    </span>
+                  </div>
                   <div className="bg-[#1a1a1a] rounded-xl p-4">
                     <p className="text-[10px] text-[#555] uppercase tracking-wider mb-1">Territory</p>
                     <p className="text-sm text-white">{partner.territory || "—"}</p>
@@ -1064,6 +1150,7 @@ export default function PartnersClient() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState("all");
+  const [partnerTypeFilter, setPartnerTypeFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -1073,6 +1160,7 @@ export default function PartnersClient() {
       setError(null);
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (partnerTypeFilter !== "all") params.set("partnerType", partnerTypeFilter);
       if (healthFilter !== "all") params.set("health", healthFilter);
       if (search) params.set("search", search);
 
@@ -1097,7 +1185,7 @@ export default function PartnersClient() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, healthFilter, search]);
+  }, [statusFilter, partnerTypeFilter, healthFilter, search]);
 
   useEffect(() => {
     setLoading(true);
@@ -1155,6 +1243,16 @@ export default function PartnersClient() {
 
       {/* Filter Row */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
+        {/* Partner type */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {PARTNER_TYPES.map(({ key, label }) => (
+            <FilterPill key={key} label={label} active={partnerTypeFilter === key} onClick={() => setPartnerTypeFilter(key)} />
+          ))}
+        </div>
+
+        {/* Spacer */}
+        <div className="w-px h-5 bg-[#2a2a2a] hidden sm:block" />
+
         {/* Status pills */}
         <div className="flex items-center gap-1 flex-wrap">
           {PIPELINE_STATUSES.map(({ key, label }) => (
@@ -1215,6 +1313,7 @@ export default function PartnersClient() {
               <tr className="border-b border-[#2a2a2a] text-[#555] text-[11px] uppercase tracking-wider">
                 <th className="text-left px-3 py-3 w-5"></th>
                 <th className="text-left px-3 py-3">Company</th>
+                <th className="text-left px-3 py-3">Type</th>
                 <th className="text-left px-3 py-3">Status</th>
                 <th className="text-left px-3 py-3">Territory</th>
                 <th className="text-left px-3 py-3">Primary Contact</th>
@@ -1244,6 +1343,13 @@ export default function PartnersClient() {
                   {/* Company */}
                   <td className="px-3 py-3">
                     <p className="text-white font-medium text-sm truncate max-w-[160px]">{p.name}</p>
+                  </td>
+
+                  {/* Type */}
+                  <td className="px-3 py-3">
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${partnerTypeBadgeClass(p.partner_type)}`}>
+                      {partnerTypeLabel(p.partner_type)}
+                    </span>
                   </td>
 
                   {/* Status */}
