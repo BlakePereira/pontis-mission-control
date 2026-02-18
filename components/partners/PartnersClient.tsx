@@ -429,6 +429,9 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
   const [showAddInteraction, setShowAddInteraction] = useState(false);
   const [showAddAction, setShowAddAction] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [editContactForm, setEditContactForm] = useState<Partial<Contact>>({});
+  const [savingContact, setSavingContact] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -797,29 +800,134 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
                   <div className="space-y-3">
                     {contacts.map((c) => (
                       <div key={c.id} className="bg-[#1a1a1a] rounded-xl p-4 border border-[#2a2a2a]">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="text-sm font-semibold text-white">{c.name}</p>
-                            {c.role && <p className="text-xs text-[#555]">{c.role}</p>}
+                        {editingContactId === c.id ? (
+                          /* ── Inline edit form ── */
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] text-[#555] uppercase tracking-wider">Name</label>
+                                <input
+                                  className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981]"
+                                  value={editContactForm.name ?? ""}
+                                  onChange={(e) => setEditContactForm((f) => ({ ...f, name: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-[#555] uppercase tracking-wider">Role</label>
+                                <input
+                                  className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981]"
+                                  value={editContactForm.role ?? ""}
+                                  onChange={(e) => setEditContactForm((f) => ({ ...f, role: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-[#555] uppercase tracking-wider">Phone</label>
+                                <input
+                                  className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981]"
+                                  value={editContactForm.phone ?? ""}
+                                  onChange={(e) => setEditContactForm((f) => ({ ...f, phone: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-[#555] uppercase tracking-wider">Email</label>
+                                <input
+                                  className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981]"
+                                  value={editContactForm.email ?? ""}
+                                  onChange={(e) => setEditContactForm((f) => ({ ...f, email: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-[#555] uppercase tracking-wider">Notes</label>
+                              <textarea
+                                rows={2}
+                                className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981] resize-none"
+                                value={editContactForm.notes ?? ""}
+                                onChange={(e) => setEditContactForm((f) => ({ ...f, notes: e.target.value }))}
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => { setEditingContactId(null); setEditContactForm({}); }}
+                                className="px-3 py-1.5 text-xs text-[#666] border border-[#333] rounded-lg hover:border-[#555] transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                disabled={savingContact}
+                                onClick={async () => {
+                                  setSavingContact(true);
+                                  try {
+                                    const res = await fetch(`/api/partners/${partner.id}/contacts`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ contactId: c.id, ...editContactForm }),
+                                    });
+                                    if (res.ok) {
+                                      const data = await res.json();
+                                      const updated = data.contact;
+                                      setContacts((prev) => prev.map((x) => x.id === c.id ? { ...x, ...updated } : x));
+                                      setEditingContactId(null);
+                                      setEditContactForm({});
+                                    }
+                                  } finally {
+                                    setSavingContact(false);
+                                  }
+                                }}
+                                className="px-3 py-1.5 text-xs bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors disabled:opacity-50"
+                              >
+                                {savingContact ? "Saving…" : "Save"}
+                              </button>
+                            </div>
                           </div>
-                          <span className="text-[10px] text-[#555] bg-[#111] px-2 py-0.5 rounded-full border border-[#2a2a2a]">
-                            {c.preferred_contact_method}
-                          </span>
-                        </div>
-                        <div className="space-y-1">
-                          {c.phone && (
-                            <div className="flex items-center gap-2 text-xs text-[#888]">
-                              <Phone size={11} className="text-[#555]" /> {c.phone}
+                        ) : (
+                          /* ── Read view ── */
+                          <>
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="text-sm font-semibold text-white">{c.name}</p>
+                                {c.role && <p className="text-xs text-[#555]">{c.role}</p>}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-[#555] bg-[#111] px-2 py-0.5 rounded-full border border-[#2a2a2a]">
+                                  {c.preferred_contact_method}
+                                </span>
+                                <button
+                                  onClick={() => { setEditingContactId(c.id); setEditContactForm({ name: c.name, role: c.role ?? "", phone: c.phone ?? "", email: c.email ?? "", notes: c.notes ?? "" }); }}
+                                  className="p-1 text-[#555] hover:text-[#10b981] transition-colors rounded"
+                                  title="Edit contact"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm(`Delete ${c.name}?`)) return;
+                                    const res = await fetch(`/api/partners/${partner.id}/contacts?contactId=${c.id}`, { method: "DELETE" });
+                                    if (res.ok) setContacts((prev) => prev.filter((x) => x.id !== c.id));
+                                  }}
+                                  className="p-1 text-[#555] hover:text-red-400 transition-colors rounded"
+                                  title="Delete contact"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                </button>
+                              </div>
                             </div>
-                          )}
-                          {c.email && (
-                            <div className="flex items-center gap-2 text-xs text-[#888]">
-                              <Mail size={11} className="text-[#555]" />
-                              <a href={`mailto:${c.email}`} className="text-[#10b981] hover:underline">{c.email}</a>
+                            <div className="space-y-1">
+                              {c.phone && (
+                                <div className="flex items-center gap-2 text-xs text-[#888]">
+                                  <Phone size={11} className="text-[#555]" /> {c.phone}
+                                </div>
+                              )}
+                              {c.email && (
+                                <div className="flex items-center gap-2 text-xs text-[#888]">
+                                  <Mail size={11} className="text-[#555]" />
+                                  <a href={`mailto:${c.email}`} className="text-[#10b981] hover:underline">{c.email}</a>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        {c.notes && <p className="text-xs text-[#666] mt-2 italic">{c.notes}</p>}
+                            {c.notes && <p className="text-xs text-[#666] mt-2 italic">{c.notes}</p>}
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
