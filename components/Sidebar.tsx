@@ -13,6 +13,7 @@ import {
   BookOpen,
   Shield,
   Clock,
+  BarChart2,
 } from "lucide-react";
 
 const nav = [
@@ -26,6 +27,7 @@ const nav = [
   { href: "/security", label: "Security", icon: Shield, emoji: "🛡️" },
   { href: "/crons", label: "Cron Jobs", icon: Clock, emoji: "⏰" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
+  { href: "/usage", label: "Usage", icon: BarChart2, emoji: "📊" },
 ];
 
 function ClockDisplay() {
