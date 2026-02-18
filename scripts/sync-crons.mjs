@@ -35,6 +35,7 @@ async function main() {
   console.log(`[sync-crons] Syncing ${jobs.length} jobs to Mission Control…`);
 
   // POST to sync endpoint
+  const basicAuth = "Basic " + Buffer.from("pontis:missioncontrol2026").toString("base64");
   let res;
   try {
     res = await fetch(SYNC_URL, {
@@ -42,6 +43,7 @@ async function main() {
       headers: {
         "Content-Type": "application/json",
         "x-sync-secret": SYNC_SECRET,
+        "Authorization": basicAuth,
       },
       body: JSON.stringify({ jobs }),
     });
