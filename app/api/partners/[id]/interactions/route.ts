@@ -93,3 +93,80 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: partnerId } = await params;
+    const body = await req.json();
+    const interactionId = body.interactionId;
+
+    if (!interactionId) {
+      return NextResponse.json({ error: "interactionId required" }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (body.type !== undefined) updates.type = body.type;
+    if (body.direction !== undefined) updates.direction = body.direction;
+    if (body.summary !== undefined) updates.summary = body.summary;
+    if (body.outcome !== undefined) updates.outcome = body.outcome;
+    if (body.logged_by !== undefined) updates.logged_by = body.logged_by;
+    if (body.raw_note !== undefined) updates.raw_note = body.raw_note;
+    if (body.interaction_date !== undefined) updates.interaction_date = body.interaction_date;
+
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/crm_interactions?id=eq.${interactionId}&partner_id=eq.${partnerId}`,
+      {
+        method: "PATCH",
+        headers: sbHeaders,
+        body: JSON.stringify(updates),
+      }
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      return NextResponse.json({ error: text }, { status: 500 });
+    }
+
+    const data = await res.json();
+    return NextResponse.json({ interaction: Array.isArray(data) ? data[0] : data });
+  } catch (err: unknown) {
+    const error = err as Error;
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: partnerId } = await params;
+    const { searchParams } = new URL(req.url);
+    const interactionId = searchParams.get("interactionId");
+
+    if (!interactionId) {
+      return NextResponse.json({ error: "interactionId query param required" }, { status: 400 });
+    }
+
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/crm_interactions?id=eq.${interactionId}&partner_id=eq.${partnerId}`,
+      {
+        method: "DELETE",
+        headers: { ...sbHeaders, Prefer: "return=minimal" },
+      }
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      return NextResponse.json({ error: text }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const error = err as Error;
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

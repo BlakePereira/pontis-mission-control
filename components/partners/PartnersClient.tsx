@@ -432,6 +432,9 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [editContactForm, setEditContactForm] = useState<Partial<Contact>>({});
   const [savingContact, setSavingContact] = useState(false);
+  const [editingInteractionId, setEditingInteractionId] = useState<string | null>(null);
+  const [editInteractionForm, setEditInteractionForm] = useState<Partial<Interaction>>({});
+  const [savingInteraction, setSavingInteraction] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -972,26 +975,122 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
                     {interactions.map((i) => (
                       <div key={i.id} className="flex gap-3">
                         <div className="flex-shrink-0 w-8 h-8 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg flex items-center justify-center text-base">
-                          {INTERACTION_ICONS[i.type] || "📝"}
+                          {INTERACTION_ICONS[editingInteractionId === i.id ? (editInteractionForm.type ?? i.type) : i.type] || "📝"}
                         </div>
                         <div className="flex-1 bg-[#1a1a1a] rounded-xl p-3 border border-[#2a2a2a]">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-white capitalize">{i.type.replace("_", " ")}</span>
-                              {i.direction && (
-                                <span className="text-[10px] text-[#555]">{i.direction}</span>
-                              )}
-                              {i.outcome && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${outcomeBadgeClass(i.outcome)}`}>
-                                  {i.outcome}
-                                </span>
-                              )}
+                          {editingInteractionId === i.id ? (
+                            /* ── Inline edit form ── */
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-[#555] uppercase tracking-wider">Type</label>
+                                  <select
+                                    className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981]"
+                                    value={editInteractionForm.type ?? i.type}
+                                    onChange={(e) => setEditInteractionForm((f) => ({ ...f, type: e.target.value as Interaction["type"] }))}
+                                  >
+                                    {["email","call","text","meeting","demo","site_visit","note"].map((t) => (
+                                      <option key={t} value={t}>{t.replace("_"," ")}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-[#555] uppercase tracking-wider">Outcome</label>
+                                  <select
+                                    className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981]"
+                                    value={editInteractionForm.outcome ?? i.outcome ?? ""}
+                                    onChange={(e) => setEditInteractionForm((f) => ({ ...f, outcome: e.target.value as Interaction["outcome"] || null }))}
+                                  >
+                                    <option value="">— none —</option>
+                                    <option value="positive">positive</option>
+                                    <option value="neutral">neutral</option>
+                                    <option value="negative">negative</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-[#555] uppercase tracking-wider">Summary</label>
+                                <textarea
+                                  rows={3}
+                                  className="w-full mt-1 bg-[#111] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#10b981] resize-none"
+                                  value={editInteractionForm.summary ?? i.summary}
+                                  onChange={(e) => setEditInteractionForm((f) => ({ ...f, summary: e.target.value }))}
+                                />
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm("Delete this interaction?")) return;
+                                    const res = await fetch(`/api/partners/${partner.id}/interactions?interactionId=${i.id}`, { method: "DELETE" });
+                                    if (res.ok) {
+                                      setInteractions((prev) => prev.filter((x) => x.id !== i.id));
+                                      setEditingInteractionId(null);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 text-xs text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 transition-colors mr-auto"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  onClick={() => { setEditingInteractionId(null); setEditInteractionForm({}); }}
+                                  className="px-3 py-1.5 text-xs text-[#666] border border-[#333] rounded-lg hover:border-[#555] transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  disabled={savingInteraction}
+                                  onClick={async () => {
+                                    setSavingInteraction(true);
+                                    try {
+                                      const res = await fetch(`/api/partners/${partner.id}/interactions`, {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ interactionId: i.id, ...editInteractionForm }),
+                                      });
+                                      if (res.ok) {
+                                        const data = await res.json();
+                                        const updated = data.interaction;
+                                        setInteractions((prev) => prev.map((x) => x.id === i.id ? { ...x, ...updated } : x));
+                                        setEditingInteractionId(null);
+                                        setEditInteractionForm({});
+                                      }
+                                    } finally {
+                                      setSavingInteraction(false);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 text-xs bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors disabled:opacity-50"
+                                >
+                                  {savingInteraction ? "Saving…" : "Save"}
+                                </button>
+                              </div>
                             </div>
-                            <span className="text-[10px] text-[#555]">{formatRelative(i.interaction_date)}</span>
-                          </div>
-                          <p className="text-xs text-[#aaa] leading-relaxed">{i.summary}</p>
-                          {i.logged_by && (
-                            <p className="text-[10px] text-[#555] mt-1">by {i.logged_by}</p>
+                          ) : (
+                            /* ── Read view ── */
+                            <>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-white capitalize">{i.type.replace("_", " ")}</span>
+                                  {i.direction && <span className="text-[10px] text-[#555]">{i.direction}</span>}
+                                  {i.outcome && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${outcomeBadgeClass(i.outcome)}`}>
+                                      {i.outcome}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-[#555]">{formatRelative(i.interaction_date)}</span>
+                                  <button
+                                    onClick={() => { setEditingInteractionId(i.id); setEditInteractionForm({ type: i.type, outcome: i.outcome, summary: i.summary }); }}
+                                    className="p-1 text-[#555] hover:text-[#10b981] transition-colors rounded"
+                                    title="Edit interaction"
+                                  >
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-xs text-[#aaa] leading-relaxed">{i.summary}</p>
+                              {i.logged_by && <p className="text-[10px] text-[#555] mt-1">by {i.logged_by}</p>}
+                            </>
                           )}
                         </div>
                       </div>
