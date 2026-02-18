@@ -50,3 +50,5 @@ Individual findings from security scans. Linked to a scan via `scan_id`. Include
 Live agent status for the War Room visualization. Updated by Clara in real-time via the update-agent-status script.
 - Realtime subscription enabled via `supabase_realtime` publication
 - `REPLICA IDENTITY FULL` required for Realtime to send full row data
+| `006-cron-jobs.sql` | `cron_jobs` table for Cron Jobs tab | ✅ Applied |
+| `007-usage-logs.sql` | `usage_logs` + `usage_collector_state` tables for Model Usage tracker | ✅ Applied Feb 18, 2026 |
