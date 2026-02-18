@@ -24,56 +24,58 @@ const sbHeaders = {
   Prefer: "resolution=merge-duplicates,return=minimal",
 };
 
-function inferKind(messages) {
-  // Look through messages for channel or delivery context hints
-  for (const msg of messages) {
-    // Check for deliveryContext field
-    const dc = msg.deliveryContext || msg.message?.deliveryContext;
-    if (dc) {
-      const ch = (dc.channel || "").toLowerCase();
-      if (ch.includes("group") || ch.includes("g-")) return "group";
-      if (ch.includes("telegram") || ch.includes("main")) return "main";
+function inferKindFromContent(parsedLines) {
+  // Strategy: scan message content for structural clues OpenClaw embeds
+  // 1. Group sessions: user messages start with "[Telegram <GroupName>"
+  // 2. Main sessions: contain a delivery-mirror model message ("New session started")
+  // 3. Sub-agent/cron sessions: no delivery-mirror, no group prefix messages
+
+  let hasDeliveryMirror = false;
+  let hasGroupMessage = false;
+  let hasCronLabel = false;
+
+  for (const item of parsedLines) {
+    const msg = item.type === "message" ? item.message : item;
+    if (!msg) continue;
+
+    // Detect delivery-mirror (marks main or group sessions)
+    if (msg.model === "delivery-mirror" || msg.provider === "openclaw") {
+      hasDeliveryMirror = true;
     }
 
-    // Check for lastChannel
-    const lc = msg.lastChannel || msg.message?.lastChannel;
-    if (lc) {
-      const ch = (lc || "").toLowerCase();
-      if (ch.includes("group")) return "group";
+    // Detect group sessions: user messages have format "[Telegram <Name> id:-<negativeId> ..."
+    // Telegram group IDs are negative; DM IDs are positive.
+    if (msg.role === "user") {
+      const content = Array.isArray(msg.content)
+        ? (msg.content.find((c) => c.type === "text")?.text || "")
+        : (typeof msg.content === "string" ? msg.content : "");
+      if (/^\[Telegram .+ id:-[0-9]/.test(content)) {
+        hasGroupMessage = true;
+      }
     }
 
-    // Check for session type hint
-    const customType = msg.customType || "";
-    if (customType === "subagent" || customType.includes("subagent")) return "subagent";
-
-    // Check session start metadata
-    if (msg.type === "session") {
-      const id = (msg.id || "").toLowerCase();
-      if (id.includes("subagent")) return "subagent";
+    // Detect cron label in message metadata
+    const label = item.label || msg.label;
+    if (label && (label.toLowerCase().includes("cron") || label.toLowerCase().startsWith("cron:"))) {
+      hasCronLabel = true;
     }
-
-    // Look for subagent label in any message
-    const label = msg.label || msg.message?.label || msg.data?.label;
-    if (label) return "subagent";
   }
 
-  // Check session id for subagent pattern (OpenClaw uses subagent: prefix in session keys)
-  return "other";
+  if (hasGroupMessage) return "group";
+  if (hasDeliveryMirror && !hasGroupMessage) return "main";
+  if (hasCronLabel) return "other"; // cron sessions → "other"
+  return "subagent"; // no delivery-mirror = sub-agent (spawned task)
 }
 
 function inferKindFromSessionMetadata(firstLine) {
-  if (!firstLine) return "other";
-  // The first line is the session metadata
-  const id = (firstLine.id || "").toLowerCase();
+  if (!firstLine) return null;
+  // The JSONL first line rarely has a key, but check anyway
   const key = (firstLine.key || "").toLowerCase();
-
   if (key.includes("subagent")) return "subagent";
   if (key === "agent:main:main" || key.includes(":main:main")) return "main";
   if (key.includes("telegram:group") || key.includes("telegram:g-")) return "group";
-  if (key.includes("cron") || key.includes("heartbeat")) return "other";
-  if (id.includes("subagent")) return "subagent";
-
-  return "other";
+  if (key.includes("cron")) return "other";
+  return null; // unknown — fall through to content-based detection
 }
 
 function extractTextFromContent(content) {
@@ -92,7 +94,7 @@ function extractTextFromContent(content) {
 async function upsertSessions(rows) {
   if (rows.length === 0) return { ok: true, count: 0 };
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/sessions_log`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/sessions_log?on_conflict=session_key`, {
     method: "POST",
     headers: sbHeaders,
     body: JSON.stringify(rows),
@@ -161,12 +163,10 @@ async function main() {
     // First line is session metadata
     const sessionMeta = parsed[0];
 
-    // Determine kind from session metadata key
+    // Determine kind: first try session metadata key, then content-based detection
     let kind = inferKindFromSessionMetadata(sessionMeta);
-
-    // Also scan messages for more context
-    if (kind === "other") {
-      kind = inferKind(parsed);
+    if (!kind) {
+      kind = inferKindFromContent(parsed);
     }
 
     // Extract all timestamps
@@ -252,14 +252,6 @@ async function main() {
       sessionMeta.key ||
       sessionMeta.id ||
       sessionId;
-
-    // Re-check kind with session key
-    if (sessionKey !== sessionId) {
-      const keyLower = sessionKey.toLowerCase();
-      if (keyLower.includes("subagent")) kind = "subagent";
-      else if (keyLower === "agent:main:main" || keyLower.includes(":main:main")) kind = "main";
-      else if (keyLower.includes("telegram:group") || keyLower.includes("telegram:g-")) kind = "group";
-    }
 
     rows.push({
       session_key: sessionKey,
