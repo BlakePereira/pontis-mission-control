@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ClipboardList, Flag, Plus, Save } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CalendarDays,
+  ClipboardList,
+  Flag,
+  Plus,
+  Save,
+  Activity,
+} from "lucide-react";
+import ChatPanel from "./ChatPanel";
+import TodayFocus from "./TodayFocus";
+import TodayFocusSticky from "./TodayFocusSticky";
+import WeekSummary from "./WeekSummary";
+import GoalsSummary from "./GoalsSummary";
 
 type TabKey = "dashboard" | "weekly" | "quarterly";
 type GoalStatus = "on_track" | "at_risk" | "behind" | "completed";
 type DailyStatus = "pending" | "in_progress" | "done" | "deferred";
-type Owner = "blake" | "joe" | "clara";
 
 interface PlanningGoal {
   id: string;
@@ -50,7 +61,7 @@ interface PlanningDailyTask {
   id: string;
   date: string;
   week_id: string | null;
-  owner: Owner;
+  owner: string;
   task: string;
   goal_id: string | null;
   priority: number;
@@ -60,8 +71,6 @@ interface PlanningDailyTask {
   completed_at: string | null;
 }
 
-const OWNERS: Owner[] = ["blake", "joe", "clara"];
-
 function getCurrentQuarter(date = new Date()): string {
   const month = date.getMonth();
   const quarter = Math.floor(month / 3) + 1;
@@ -70,9 +79,7 @@ function getCurrentQuarter(date = new Date()): string {
 
 function parseQuarter(quarter: string): { year: number; q: number } {
   const [yearPart, quarterPart] = quarter.split("-Q");
-  const year = Number(yearPart);
-  const q = Number(quarterPart);
-  return { year, q };
+  return { year: Number(yearPart), q: Number(quarterPart) };
 }
 
 function getQuarterWeeks(quarter: string): string[] {
@@ -82,7 +89,6 @@ function getQuarterWeeks(quarter: string): string[] {
   const day = start.getUTCDay();
   const mondayOffset = day === 0 ? -6 : 1 - day;
   start.setUTCDate(start.getUTCDate() + mondayOffset);
-
   return Array.from({ length: 13 }, (_, i) => {
     const d = new Date(start);
     d.setUTCDate(start.getUTCDate() + i * 7);
@@ -139,8 +145,13 @@ export default function PlanningClient() {
   const [weeks, setWeeks] = useState<PlanningWeek[]>([]);
   const [daily, setDaily] = useState<PlanningDailyTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+
+  // Weekly tab state
   const [expandedWeekIds, setExpandedWeekIds] = useState<Record<string, boolean>>({});
   const [editingWeekIds, setEditingWeekIds] = useState<Record<string, boolean>>({});
+
+  // Quarterly tab state
   const [editingGoalIds, setEditingGoalIds] = useState<Record<string, boolean>>({});
   const [newGoalOpen, setNewGoalOpen] = useState(false);
   const [newGoal, setNewGoal] = useState({
@@ -155,7 +166,7 @@ export default function PlanningClient() {
     owner: "all",
   });
 
-  async function loadData(selectedQuarter: string) {
+  const loadData = useCallback(async (selectedQuarter: string) => {
     setLoading(true);
     try {
       const [goalsRes, weeksRes, dailyRes] = await Promise.all([
@@ -163,17 +174,15 @@ export default function PlanningClient() {
         fetch(`/api/planning/weeks?quarter=${encodeURIComponent(selectedQuarter)}`),
         fetch("/api/planning/daily"),
       ]);
-
       const [goalsData, weeksData, dailyData] = await Promise.all([
         goalsRes.json(),
         weeksRes.json(),
         dailyRes.json(),
       ]);
-
       setGoals(Array.isArray(goalsData.goals) ? goalsData.goals : []);
       const weeksList = Array.isArray(weeksData.weeks) ? weeksData.weeks : [];
       setWeeks(
-        weeksList.map((week: PlanningWeek & { planned_outcomes?: unknown }) => ({
+        weeksList.map((week: PlanningWeek) => ({
           ...week,
           planned_outcomes: Array.isArray(week.planned_outcomes) ? week.planned_outcomes : [],
         }))
@@ -182,54 +191,35 @@ export default function PlanningClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadData(quarter);
-  }, [quarter]);
+  }, [quarter, loadData]);
 
   const today = todayISO();
   const weekStart = startOfWeekISO();
 
-  const weekMap = useMemo(() => {
-    return new Map(weeks.map((w) => [w.week_start, w]));
-  }, [weeks]);
-
-  const thisWeek = useMemo(() => {
-    return weeks.find((w) => w.week_start === weekStart) ?? null;
-  }, [weeks, weekStart]);
-
-  const todayTasks = useMemo(() => {
-    return daily.filter((task) => task.date === today);
-  }, [daily, today]);
+  const weekMap = useMemo(() => new Map(weeks.map((w) => [w.week_start, w])), [weeks]);
+  const thisWeek = useMemo(() => weeks.find((w) => w.week_start === weekStart) ?? null, [weeks, weekStart]);
+  const todayTasks = useMemo(() => daily.filter((t) => t.date === today), [daily, today]);
 
   const thisWeekTasks = useMemo(() => {
     if (!thisWeek) return [] as PlanningDailyTask[];
-    return daily.filter((task) => task.week_id === thisWeek.id);
+    return daily.filter((t) => t.week_id === thisWeek.id);
   }, [daily, thisWeek]);
 
   const driftScore = useMemo(() => {
     if (!thisWeekTasks.length) return 0;
-    const mapped = thisWeekTasks.filter((task) => !!task.goal_id).length;
+    const mapped = thisWeekTasks.filter((t) => !!t.goal_id).length;
     return Math.round((mapped / thisWeekTasks.length) * 100);
   }, [thisWeekTasks]);
 
   const quarterWeekStarts = useMemo(() => getQuarterWeeks(quarter), [quarter]);
 
-  async function updateOutcomeStatus(week: PlanningWeek, index: number) {
-    const outcomes = [...week.planned_outcomes];
-    const current = outcomes[index];
-    const nextStatus =
-      current.status === "done" ? "pending" : current.status === "in_progress" ? "done" : "in_progress";
-
-    outcomes[index] = { ...current, status: nextStatus };
-    await fetch(`/api/planning/weeks/${week.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planned_outcomes: outcomes }),
-    });
-    await loadData(quarter);
-  }
+  const handleDataChange = useCallback(() => {
+    loadData(quarter);
+  }, [quarter, loadData]);
 
   async function toggleTaskStatus(task: PlanningDailyTask) {
     const nextStatus: DailyStatus = task.status === "done" ? "pending" : "done";
@@ -237,6 +227,20 @@ export default function PlanningClient() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: nextStatus }),
+    });
+    await loadData(quarter);
+  }
+
+  async function updateOutcomeStatus(week: PlanningWeek, index: number) {
+    const outcomes = [...week.planned_outcomes];
+    const current = outcomes[index];
+    const nextStatus =
+      current.status === "done" ? "pending" : current.status === "in_progress" ? "done" : "in_progress";
+    outcomes[index] = { ...current, status: nextStatus };
+    await fetch(`/api/planning/weeks/${week.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planned_outcomes: outcomes }),
     });
     await loadData(quarter);
   }
@@ -291,15 +295,8 @@ export default function PlanningClient() {
     });
     setNewGoalOpen(false);
     setNewGoal({
-      title: "",
-      description: "",
-      category: "business",
-      target_metric: "",
-      current_value: "0",
-      target_value: "0",
-      unit: "",
-      status: "on_track",
-      owner: "all",
+      title: "", description: "", category: "business", target_metric: "",
+      current_value: "0", target_value: "0", unit: "", status: "on_track", owner: "all",
     });
     await loadData(quarter);
   }
@@ -318,177 +315,160 @@ export default function PlanningClient() {
 
   return (
     <div className="space-y-5">
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-2 flex items-center gap-2 w-fit">
-        {[
-          { key: "dashboard", label: "Dashboard", icon: CalendarDays },
-          { key: "weekly", label: "Weekly", icon: ClipboardList },
-          { key: "quarterly", label: "Quarterly", icon: Flag },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key as TabKey)}
-            className={`px-3 py-2 rounded-lg text-sm border transition-colors flex items-center gap-2 ${
-              tab === key
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                : "bg-[#1a1a1a] border-[#2a2a2a] text-[#999] hover:text-white"
-            }`}
-          >
-            <Icon size={14} />
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Sticky Today's Focus Panel */}
+      {!loading && (
+        <TodayFocusSticky tasks={todayTasks} onToggleTask={toggleTaskStatus} />
+      )}
 
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 w-fit">
-        <label className="text-xs uppercase tracking-wider text-[#999]">Quarter</label>
-        <select
-          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-sm text-white px-2.5 py-1.5"
-          value={quarter}
-          onChange={(e) => setQuarter(e.target.value)}
-        >
+      {/* Tabs */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-2 flex items-center gap-2 w-fit">
           {[
-            `${new Date().getFullYear() - 1}-Q4`,
-            `${new Date().getFullYear()}-Q1`,
-            `${new Date().getFullYear()}-Q2`,
-            `${new Date().getFullYear()}-Q3`,
-            `${new Date().getFullYear()}-Q4`,
-            `${new Date().getFullYear() + 1}-Q1`,
-          ].map((q) => (
-            <option key={q} value={q}>
-              {q}
-            </option>
+            { key: "dashboard", label: "Dashboard", icon: CalendarDays },
+            { key: "weekly", label: "Weekly", icon: ClipboardList },
+            { key: "quarterly", label: "Quarterly", icon: Flag },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key as TabKey)}
+              className={`px-3 py-2 rounded-lg text-sm border transition-colors flex items-center gap-2 ${
+                tab === key
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  : "bg-[#1a1a1a] border-[#2a2a2a] text-[#999] hover:text-white"
+              }`}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
           ))}
-        </select>
+        </div>
+
+        <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 w-fit">
+          <label className="text-xs uppercase tracking-wider text-[#999]">Quarter</label>
+          <select
+            className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-sm text-white px-2.5 py-1.5"
+            value={quarter}
+            onChange={(e) => setQuarter(e.target.value)}
+          >
+            {[
+              `${new Date().getFullYear() - 1}-Q4`,
+              `${new Date().getFullYear()}-Q1`,
+              `${new Date().getFullYear()}-Q2`,
+              `${new Date().getFullYear()}-Q3`,
+              `${new Date().getFullYear()}-Q4`,
+              `${new Date().getFullYear() + 1}-Q1`,
+            ].map((q) => (
+              <option key={q} value={q}>{q}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading && <div className="text-[#999] text-sm">Loading planning data...</div>}
 
+      {/* ──────── DASHBOARD TAB ──────── */}
       {!loading && tab === "dashboard" && (
-        <div className="space-y-5">
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">Quarterly Goal Progress</h3>
-              <span className="text-xs text-[#999]">{quarter}</span>
-            </div>
-            <div className="space-y-3">
-              {goals.map((goal) => {
-                const current = coerceNumber(goal.current_value);
-                const target = coerceNumber(goal.target_value);
-                const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-                return (
-                  <div key={goal.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm text-white">{goal.title}</p>
-                      <span className={`text-[11px] px-2 py-0.5 rounded border ${statusClass(goal.status)}`}>
-                        {goal.status.replace("_", " ")}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full bg-[#0a0a0a] rounded-full mt-2 overflow-hidden">
-                      <div className={`h-full ${progressColor(goal.status)}`} style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="text-xs text-[#999] mt-1">
-                      {current} / {target} {goal.unit ?? ""}
-                    </p>
-                  </div>
-                );
-              })}
-              {!goals.length && <p className="text-sm text-[#999]">No goals in this quarter yet.</p>}
-            </div>
-          </div>
+        <div className="flex gap-5 items-start">
+          {/* Left: Content */}
+          <div className={`space-y-4 ${chatCollapsed ? "w-full" : "w-full lg:w-[60%]"}`}>
+            <TodayFocus
+              tasks={todayTasks}
+              goals={goals}
+              onToggleTask={toggleTaskStatus}
+              onAskClara={() => setChatCollapsed(false)}
+            />
 
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-white font-semibold">This Week</h3>
-              <span className="text-xs text-[#999]">Week of {weekStart}</span>
-            </div>
-            {thisWeek ? (
-              <div className="space-y-2">
-                <p className="text-sm text-[#999]">{thisWeek.theme ?? "No week theme set."}</p>
-                {thisWeek.planned_outcomes.map((outcome, idx) => (
-                  <button
-                    key={`${thisWeek.id}-${idx}-${outcome.title}`}
-                    onClick={() => updateOutcomeStatus(thisWeek, idx)}
-                    className="w-full flex items-center justify-between bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-2.5 text-left"
-                  >
-                    <span className="text-sm text-white">{outcome.title}</span>
-                    <span
-                      className={`text-[11px] px-2 py-0.5 rounded border ${
-                        outcome.status === "done"
-                          ? "bg-emerald-900/30 text-emerald-300 border-emerald-700/50"
-                          : outcome.status === "in_progress"
-                            ? "bg-amber-900/30 text-amber-300 border-amber-700/50"
-                            : "bg-[#0a0a0a] text-[#999] border-[#2a2a2a]"
-                      }`}
-                    >
-                      {outcome.status ?? "pending"}
-                    </span>
-                  </button>
-                ))}
-                {!thisWeek.planned_outcomes.length && (
-                  <p className="text-sm text-[#999]">No planned outcomes added for this week.</p>
-                )}
+            <WeekSummary
+              week={thisWeek}
+              weekStart={weekStart}
+              onGoToWeekly={() => setTab("weekly")}
+            />
+
+            <GoalsSummary goals={goals} />
+
+            {/* Drift Score */}
+            <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity size={14} className="text-emerald-400" />
+                <div>
+                  <p className="text-sm text-white font-semibold">Drift Score</p>
+                  <p className="text-[10px] text-[#555]">% of this week&apos;s tasks linked to quarterly goals</p>
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-[#999]">No plan created for the current week yet.</p>
-            )}
-          </div>
-
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
-            <h3 className="text-white font-semibold mb-3">Today</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {OWNERS.map((owner) => {
-                const tasks = todayTasks.filter((task) => task.owner === owner);
-                return (
-                  <div key={owner} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-3">
-                    <p className="text-xs uppercase tracking-wider text-[#999] mb-2">{owner}</p>
-                    <div className="space-y-2">
-                      {tasks.map((task) => (
-                        <label key={task.id} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={task.status === "done"}
-                            onChange={() => toggleTaskStatus(task)}
-                            className="accent-emerald-500"
-                          />
-                          <span className={`text-sm ${task.status === "done" ? "text-[#555] line-through" : "text-white"}`}>
-                            {task.task}
-                          </span>
-                        </label>
-                      ))}
-                      {!tasks.length && <p className="text-xs text-[#555]">No tasks</p>}
-                    </div>
-                  </div>
-                );
-              })}
+              <div className={`text-2xl font-bold tabular-nums ${
+                driftScore >= 70 ? "text-emerald-400" : driftScore >= 40 ? "text-amber-400" : "text-red-400"
+              }`}>
+                {driftScore}%
+              </div>
             </div>
           </div>
 
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-white font-semibold">Drift Score</p>
-              <p className="text-xs text-[#999]">Percent of this week&apos;s tasks linked to quarterly goals</p>
+          {/* Right: Chat Panel */}
+          <div className={`hidden lg:block lg:w-[40%] sticky top-4 ${chatCollapsed ? "!hidden" : ""}`}>
+            <div className="h-[calc(100vh-12rem)]">
+              <ChatPanel
+                quarter={quarter}
+                onDataChange={handleDataChange}
+                collapsed={false}
+              />
             </div>
-            <div className="text-2xl font-bold text-emerald-400">{driftScore}%</div>
+          </div>
+
+          {/* Mobile chat */}
+          <div className="lg:hidden">
+            <ChatPanel
+              quarter={quarter}
+              onDataChange={handleDataChange}
+              collapsed={chatCollapsed}
+              onToggle={() => setChatCollapsed(!chatCollapsed)}
+            />
           </div>
         </div>
       )}
 
+      {/* Mobile chat overlay */}
+      {!loading && tab === "dashboard" && !chatCollapsed && (
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setChatCollapsed(true)}>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-[70vh] bg-[#0a0a0a] rounded-t-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ChatPanel
+              quarter={quarter}
+              onDataChange={handleDataChange}
+              onToggle={() => setChatCollapsed(true)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ──────── WEEKLY TAB ──────── */}
       {!loading && tab === "weekly" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {quarterWeekStarts.map((weekStartDate) => {
             const week = weekMap.get(weekStartDate);
+            const isCurrent = weekStartDate === weekStart;
+
             if (!week) {
               return (
-                <div key={weekStartDate} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
+                <div
+                  key={weekStartDate}
+                  className={`bg-[#111] border rounded-xl p-4 ${
+                    isCurrent ? "border-emerald-800/50" : "border-[#2a2a2a]"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
-                    <h4 className="text-white text-sm font-semibold">Week of {weekStartDate}</h4>
+                    <h4 className="text-white text-sm font-semibold">
+                      Week of {weekStartDate}
+                      {isCurrent && <span className="ml-2 text-[10px] text-emerald-400">(current)</span>}
+                    </h4>
                     <span className="text-xs text-[#555]">No plan</span>
                   </div>
                 </div>
               );
             }
 
-            const isExpanded = !!expandedWeekIds[week.id];
+            const isExpanded = !!expandedWeekIds[week.id] || isCurrent;
             const isEditing = !!editingWeekIds[week.id];
             const outcomesDone = week.planned_outcomes.filter((o) => o.status === "done").length;
             const completionPct = week.planned_outcomes.length
@@ -497,10 +477,18 @@ export default function PlanningClient() {
             const weekTasks = daily.filter((t) => t.week_id === week.id);
 
             return (
-              <div key={week.id} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
+              <div
+                key={week.id}
+                className={`bg-[#111] border rounded-xl p-4 ${
+                  isCurrent ? "border-emerald-800/50" : "border-[#2a2a2a]"
+                }`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h4 className="text-white text-sm font-semibold">Week of {week.week_start}</h4>
+                    <h4 className="text-white text-sm font-semibold">
+                      Week of {week.week_start}
+                      {isCurrent && <span className="ml-2 text-[10px] text-emerald-400">(current)</span>}
+                    </h4>
                     {isEditing ? (
                       <input
                         className="mt-1 w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
@@ -523,29 +511,40 @@ export default function PlanningClient() {
                 <div className="mt-3 h-2 w-full bg-[#0a0a0a] rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500" style={{ width: `${completionPct}%` }} />
                 </div>
-                <p className="text-xs text-[#999] mt-1">{completionPct}% planned outcomes complete</p>
+                <p className="text-xs text-[#999] mt-1">{completionPct}% outcomes complete</p>
 
                 <div className="mt-3 space-y-1">
                   {week.planned_outcomes.map((outcome, idx) => (
-                    <div key={`${week.id}-${idx}-${outcome.title}`} className="text-sm text-white bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1.5">
-                      {outcome.title}
-                    </div>
+                    <button
+                      key={`${week.id}-${idx}-${outcome.title}`}
+                      onClick={() => updateOutcomeStatus(week, idx)}
+                      className="w-full text-left text-sm text-white bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1.5 flex items-center justify-between"
+                    >
+                      <span>{outcome.title}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                        outcome.status === "done"
+                          ? "bg-emerald-900/30 text-emerald-300 border-emerald-700/50"
+                          : outcome.status === "in_progress"
+                            ? "bg-amber-900/30 text-amber-300 border-amber-700/50"
+                            : "bg-[#0a0a0a] text-[#999] border-[#2a2a2a]"
+                      }`}>
+                        {outcome.status ?? "pending"}
+                      </span>
+                    </button>
                   ))}
                   {!week.planned_outcomes.length && <p className="text-xs text-[#555]">No outcomes</p>}
                 </div>
 
-                <div className="mt-3">
-                  {isEditing ? (
+                {isEditing && (
+                  <div className="mt-3">
                     <textarea
                       className="w-full min-h-20 bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1.5 text-sm text-white"
                       value={week.retrospective ?? ""}
                       onChange={(e) => setWeekField(week.id, "retrospective", e.target.value)}
                       placeholder="Weekly retrospective..."
                     />
-                  ) : (
-                    <p className="text-xs text-[#999]">{week.retrospective ?? "No retrospective yet."}</p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="mt-3 flex items-center gap-2 text-xs text-[#999]">
                   <span>Team: {week.score ?? "—"}/5</span>
@@ -563,22 +562,75 @@ export default function PlanningClient() {
                   </button>
                 )}
 
-                <button
-                  onClick={() => setExpandedWeekIds((s) => ({ ...s, [week.id]: !s[week.id] }))}
-                  className="mt-3 text-xs px-2 py-1 rounded-md border border-[#2a2a2a] text-[#999] hover:text-white"
-                >
-                  {isExpanded ? "Hide Daily Breakdown" : "Show Daily Breakdown"}
-                </button>
+                {!isEditing && (
+                  <button
+                    onClick={() => setExpandedWeekIds((s) => ({ ...s, [week.id]: !s[week.id] }))}
+                    className="mt-3 text-xs px-2 py-1 rounded-md border border-[#2a2a2a] text-[#999] hover:text-white"
+                  >
+                    {isExpanded ? "Hide Daily Breakdown" : "Show Daily Breakdown"}
+                  </button>
+                )}
 
                 {isExpanded && (
-                  <div className="mt-2 space-y-1">
-                    {weekTasks.map((task) => (
-                      <div key={task.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1.5 text-xs">
-                        <span className="text-[#999]">{task.date}</span>{" "}
-                        <span className="text-white">{task.owner}: {task.task}</span>
+                  <div className="mt-3 border-t border-[#2a2a2a] pt-3">
+                    <p className="text-[10px] uppercase tracking-wider text-[#666] mb-2 font-semibold">
+                      Daily Breakdown
+                    </p>
+                    {weekTasks.length === 0 ? (
+                      <p className="text-xs text-[#555]">No daily tasks linked to this week.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {Array.from(new Set(weekTasks.map((t) => t.date)))
+                          .sort()
+                          .map((date) => {
+                            const dayTasks = weekTasks
+                              .filter((t) => t.date === date)
+                              .sort((a, b) => a.priority - b.priority);
+                            const dayName = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "numeric",
+                              day: "numeric",
+                            });
+                            return (
+                              <div key={date} className="bg-[#0a0a0a] rounded-md p-2">
+                                <p className="text-xs text-emerald-400 font-semibold mb-1">
+                                  {dayName}
+                                </p>
+                                <div className="space-y-1">
+                                  {dayTasks.map((task) => {
+                                    const isDone = task.status === "done";
+                                    return (
+                                      <label
+                                        key={task.id}
+                                        className="flex items-start gap-2 cursor-pointer group"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isDone}
+                                          onChange={() => toggleTaskStatus(task)}
+                                          className="mt-0.5 accent-emerald-500 shrink-0 text-xs"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <span
+                                            className={`text-xs block ${
+                                              isDone ? "text-[#555] line-through" : "text-white"
+                                            }`}
+                                          >
+                                            {task.task}
+                                          </span>
+                                          <span className="text-[10px] text-[#666]">
+                                            {task.owner}
+                                          </span>
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
                       </div>
-                    ))}
-                    {!weekTasks.length && <p className="text-xs text-[#555]">No daily tasks linked.</p>}
+                    )}
                   </div>
                 )}
               </div>
@@ -587,6 +639,7 @@ export default function PlanningClient() {
         </div>
       )}
 
+      {/* ──────── QUARTERLY TAB ──────── */}
       {!loading && tab === "quarterly" && (
         <div className="space-y-3">
           <div className="flex justify-end">
@@ -646,110 +699,113 @@ export default function PlanningClient() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {goals.map((goal) => {
-              const current = coerceNumber(goal.current_value);
-              const target = coerceNumber(goal.target_value);
-              const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-              const editing = !!editingGoalIds[goal.id];
-              return (
-                <div key={goal.id} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      {editing ? (
-                        <input
-                          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
-                          value={goal.title}
-                          onChange={(e) => setGoalField(goal.id, "title", e.target.value)}
-                        />
-                      ) : (
-                        <h4 className="text-white font-semibold">{goal.title}</h4>
-                      )}
-                      {editing ? (
-                        <textarea
-                          className="mt-1 w-full min-h-16 bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
-                          value={goal.description ?? ""}
-                          onChange={(e) => setGoalField(goal.id, "description", e.target.value)}
-                        />
-                      ) : (
-                        <p className="text-sm text-[#999] mt-1">{goal.description ?? "No description."}</p>
-                      )}
-                    </div>
-                    <button
-                      className="text-xs px-2 py-1 rounded-md border border-[#2a2a2a] text-[#999] hover:text-white"
-                      onClick={() => setEditingGoalIds((s) => ({ ...s, [goal.id]: !s[goal.id] }))}
-                    >
-                      {editing ? "Cancel" : "Edit"}
-                    </button>
-                  </div>
+          {/* Group goals by category */}
+          {["business", "product", "personal"].map((category) => {
+            const catGoals = goals.filter((g) => g.category === category);
+            if (!catGoals.length) return null;
+            return (
+              <div key={category}>
+                <h3 className="text-xs uppercase tracking-wider text-[#666] mb-2 mt-4 font-semibold">
+                  {category}
+                </h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  {catGoals.map((goal) => {
+                    const current = coerceNumber(goal.current_value);
+                    const target = coerceNumber(goal.target_value);
+                    const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+                    const editing = !!editingGoalIds[goal.id];
+                    return (
+                      <div key={goal.id} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            {editing ? (
+                              <input
+                                className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
+                                value={goal.title}
+                                onChange={(e) => setGoalField(goal.id, "title", e.target.value)}
+                              />
+                            ) : (
+                              <h4 className="text-white font-semibold">{goal.title}</h4>
+                            )}
+                            {editing ? (
+                              <textarea
+                                className="mt-1 w-full min-h-16 bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
+                                value={goal.description ?? ""}
+                                onChange={(e) => setGoalField(goal.id, "description", e.target.value)}
+                              />
+                            ) : (
+                              <p className="text-sm text-[#999] mt-1">{goal.description ?? "No description."}</p>
+                            )}
+                          </div>
+                          <button
+                            className="text-xs px-2 py-1 rounded-md border border-[#2a2a2a] text-[#999] hover:text-white shrink-0"
+                            onClick={() => setEditingGoalIds((s) => ({ ...s, [goal.id]: !s[goal.id] }))}
+                          >
+                            {editing ? "Cancel" : "Edit"}
+                          </button>
+                        </div>
 
-                  <div className="mt-3 h-2 w-full bg-[#0a0a0a] rounded-full overflow-hidden">
-                    <div className={`h-full ${progressColor(goal.status)}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className="text-xs text-[#999] mt-1">
-                    {current} / {target} {goal.unit ?? ""}
-                  </p>
+                        <div className="mt-3 h-2 w-full bg-[#0a0a0a] rounded-full overflow-hidden">
+                          <div className={`h-full ${progressColor(goal.status)}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-xs text-[#999] mt-1">
+                          {current} / {target} {goal.unit ?? ""}
+                        </p>
 
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className={`text-[11px] px-2 py-0.5 rounded border ${statusClass(goal.status)}`}>
-                      {goal.status.replace("_", " ")}
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded border bg-[#1a1a1a] border-[#2a2a2a] text-[#999]">
-                      {ownerBadge(goal.owner)}
-                    </span>
-                  </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className={`text-[11px] px-2 py-0.5 rounded border ${statusClass(goal.status)}`}>
+                            {goal.status.replace("_", " ")}
+                          </span>
+                          <span className="text-[11px] px-2 py-0.5 rounded border bg-[#1a1a1a] border-[#2a2a2a] text-[#999]">
+                            {ownerBadge(goal.owner)}
+                          </span>
+                        </div>
 
-                  <div className="mt-3">
-                    <p className="text-[11px] text-[#555] uppercase tracking-wider mb-1">Monthly Milestones</p>
-                    <div className="flex items-center gap-2">
-                      {[1, 2, 3].map((month) => (
-                        <div key={month} className="flex-1 h-1.5 rounded-full bg-[#1a1a1a] border border-[#2a2a2a]" />
-                      ))}
-                    </div>
-                  </div>
-
-                  {editing && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <input
-                        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
-                        value={String(goal.current_value)}
-                        onChange={(e) => setGoalField(goal.id, "current_value", e.target.value)}
-                        placeholder="Current"
-                      />
-                      <input
-                        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
-                        value={String(goal.target_value)}
-                        onChange={(e) => setGoalField(goal.id, "target_value", e.target.value)}
-                        placeholder="Target"
-                      />
-                      <select
-                        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
-                        value={goal.status}
-                        onChange={(e) => setGoalField(goal.id, "status", e.target.value as GoalStatus)}
-                      >
-                        <option value="on_track">on_track</option>
-                        <option value="at_risk">at_risk</option>
-                        <option value="behind">behind</option>
-                        <option value="completed">completed</option>
-                      </select>
-                      <input
-                        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
-                        value={goal.owner ?? ""}
-                        onChange={(e) => setGoalField(goal.id, "owner", e.target.value)}
-                        placeholder="Owner"
-                      />
-                      <button
-                        onClick={() => saveGoal(goal)}
-                        className="col-span-2 px-3 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm"
-                      >
-                        Save Goal
-                      </button>
-                    </div>
-                  )}
+                        {editing && (
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <input
+                              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
+                              value={String(goal.current_value)}
+                              onChange={(e) => setGoalField(goal.id, "current_value", e.target.value)}
+                              placeholder="Current"
+                            />
+                            <input
+                              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
+                              value={String(goal.target_value)}
+                              onChange={(e) => setGoalField(goal.id, "target_value", e.target.value)}
+                              placeholder="Target"
+                            />
+                            <select
+                              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
+                              value={goal.status}
+                              onChange={(e) => setGoalField(goal.id, "status", e.target.value as GoalStatus)}
+                            >
+                              <option value="on_track">on_track</option>
+                              <option value="at_risk">at_risk</option>
+                              <option value="behind">behind</option>
+                              <option value="completed">completed</option>
+                            </select>
+                            <input
+                              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-2 py-1 text-sm text-white"
+                              value={goal.owner ?? ""}
+                              onChange={(e) => setGoalField(goal.id, "owner", e.target.value)}
+                              placeholder="Owner"
+                            />
+                            <button
+                              onClick={() => saveGoal(goal)}
+                              className="col-span-2 px-3 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm"
+                            >
+                              Save Goal
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
           {!goals.length && <p className="text-sm text-[#999]">No goals created for this quarter.</p>}
         </div>
       )}
