@@ -17,6 +17,7 @@ import {
   BarChart2,
   Activity,
   Handshake,
+  TrendingUp,
 } from "lucide-react";
 
 const nav = [
@@ -24,6 +25,7 @@ const nav = [
   { href: "/planning", label: "Planning", icon: Calendar, emoji: "🗓️" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
+  { href: "/sales-funnel", label: "Sales Funnel", icon: TrendingUp, emoji: "📊" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
   { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen, emoji: "📚" },
