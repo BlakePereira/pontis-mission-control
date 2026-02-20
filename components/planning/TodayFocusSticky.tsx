@@ -3,13 +3,20 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Calendar } from "lucide-react";
 
+type DailyStatus = "pending" | "in_progress" | "done" | "deferred";
+
 interface PlanningDailyTask {
   id: string;
   date: string;
+  week_id: string | null;
   owner: string;
   task: string;
-  status: "pending" | "in_progress" | "done" | "deferred";
+  goal_id: string | null;
   priority: number;
+  status: DailyStatus;
+  notes: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 interface TodayFocusStickyProps {
