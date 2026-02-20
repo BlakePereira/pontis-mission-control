@@ -24,6 +24,7 @@ interface Partner {
   total_medallions_ordered: number;
   mrr: number | string;
   notes: string | null;
+  is_tracked: boolean;
 }
 
 interface Stats {
@@ -109,10 +110,11 @@ function StatCard({ label, value, sub, color, icon }: {
 
 // ─── PipelineCard ─────────────────────────────────────────────────────────────
 
-function PipelineCard({ partner, onSelect, onMove }: {
+function PipelineCard({ partner, onSelect, onMove, onTrack }: {
   partner: Partner;
   onSelect: () => void;
   onMove: (direction: "next" | "prev") => void;
+  onTrack: (tracked: boolean) => void;
 }) {
   const currentStageIndex = PIPELINE_STAGES.findIndex((s) => s.key === partner.pipeline_status);
   const canMoveNext = currentStageIndex < PIPELINE_STAGES.length - 1;
@@ -154,8 +156,20 @@ function PipelineCard({ partner, onSelect, onMove }: {
         </div>
       )}
 
-      {/* Move buttons */}
+      {/* Action buttons */}
       <div className="flex gap-1.5 pt-2 border-t border-[#2a2a2a]">
+        <button
+          onClick={(e) => { e.stopPropagation(); onTrack(!partner.is_tracked); }}
+          className={`flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded transition-colors ${
+            partner.is_tracked
+              ? "bg-amber-900/20 border border-amber-700/30 text-amber-400 hover:bg-amber-900/30"
+              : "bg-[#111] border border-[#2a2a2a] text-[#666] hover:text-white hover:border-[#444]"
+          }`}
+          title={partner.is_tracked ? "Tracked in Partners" : "Track in Partners"}
+        >
+          <span>{partner.is_tracked ? "⭐" : "☆"}</span>
+        </button>
+        
         {canMovePrev && (
           <button
             onClick={(e) => { e.stopPropagation(); onMove("prev"); }}
@@ -183,11 +197,12 @@ function PipelineCard({ partner, onSelect, onMove }: {
 
 // ─── PipelineColumn ───────────────────────────────────────────────────────────
 
-function PipelineColumn({ stage, partners, onSelectPartner, onMovePartner }: {
+function PipelineColumn({ stage, partners, onSelectPartner, onMovePartner, onTrackPartner }: {
   stage: { key: string; label: string; color: string };
   partners: Partner[];
   onSelectPartner: (p: Partner) => void;
   onMovePartner: (p: Partner, direction: "next" | "prev") => void;
+  onTrackPartner: (p: Partner, tracked: boolean) => void;
 }) {
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
@@ -208,6 +223,7 @@ function PipelineColumn({ stage, partners, onSelectPartner, onMovePartner }: {
             partner={p}
             onSelect={() => onSelectPartner(p)}
             onMove={(direction) => onMovePartner(p, direction)}
+            onTrack={(tracked) => onTrackPartner(p, tracked)}
           />
         ))}
         {partners.length === 0 && (
@@ -400,6 +416,22 @@ export default function SalesFunnelClient() {
     }
   };
 
+  const handleTrackPartner = async (partner: Partner, tracked: boolean) => {
+    try {
+      const res = await fetch(`/api/partners/${partner.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_tracked: tracked }),
+      });
+
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (e) {
+      console.error("Failed to track partner:", e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-900 text-white">
       {/* Header */}
@@ -493,6 +525,7 @@ export default function SalesFunnelClient() {
                 partners={stages[stage.key] || []}
                 onSelectPartner={setSelectedPartner}
                 onMovePartner={handleMovePartner}
+                onTrackPartner={handleTrackPartner}
               />
             ))}
           </div>

@@ -32,6 +32,7 @@ interface Partner {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  is_tracked: boolean;
   crm_contacts?: Contact[];
 }
 
@@ -505,6 +506,12 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
         last_contact_at: editForm.last_contact_at ? new Date(String(editForm.last_contact_at)).toISOString() : null,
         next_action_due: editForm.next_action_due ? new Date(String(editForm.next_action_due)).toISOString() : null,
       };
+      
+      // Auto-track when status changes to active stages
+      if (editForm.pipeline_status && ['demo_scheduled', 'demo_done', 'negotiating', 'active'].includes(editForm.pipeline_status)) {
+        payload.is_tracked = true;
+      }
+      
       const res = await fetch(`/api/partners/${partner.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -586,6 +593,31 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
         <div className="flex items-center gap-2 flex-shrink-0">
           {!editing && (
             <>
+              <button 
+                onClick={async () => {
+                  const newValue = !partner.is_tracked;
+                  const res = await fetch(`/api/partners/${partner.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ is_tracked: newValue }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    const updated = { ...partner, is_tracked: newValue };
+                    setPartner(updated);
+                    onUpdated(updated);
+                  }
+                }}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1.5 ${
+                  partner.is_tracked
+                    ? "bg-amber-900/20 border border-amber-700/30 text-amber-400 hover:bg-amber-900/30"
+                    : "bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#444]"
+                }`}
+                title={partner.is_tracked ? "Untrack partner" : "Track partner"}
+              >
+                <span className={partner.is_tracked ? "text-amber-400" : "text-[#888]"}>{partner.is_tracked ? "⭐" : "☆"}</span>
+                {partner.is_tracked ? "Tracked" : "Track"}
+              </button>
               <button onClick={startEdit} className="px-3 py-1.5 text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white hover:border-[#444] transition-colors">
                 Edit
               </button>
@@ -1435,6 +1467,7 @@ export default function PartnersClient() {
   const [healthFilter, setHealthFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1529,6 +1562,33 @@ export default function PartnersClient() {
 
       {/* Filter Row */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
+        {/* Tracked/All Toggle */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowAll(false)}
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all whitespace-nowrap ${
+              !showAll
+                ? "bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30"
+                : "text-[#666] hover:text-white bg-[#111] border border-[#2a2a2a] hover:border-[#444]"
+            }`}
+          >
+            ⭐ Tracked Only
+          </button>
+          <button
+            onClick={() => setShowAll(true)}
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all whitespace-nowrap ${
+              showAll
+                ? "bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30"
+                : "text-[#666] hover:text-white bg-[#111] border border-[#2a2a2a] hover:border-[#444]"
+            }`}
+          >
+            Show All
+          </button>
+        </div>
+
+        {/* Spacer */}
+        <div className="w-px h-5 bg-[#2a2a2a] hidden sm:block" />
+
         {/* Partner type */}
         <div className="flex items-center gap-1 flex-wrap">
           {PARTNER_TYPES.map(({ key, label }) => (
@@ -1609,7 +1669,7 @@ export default function PartnersClient() {
               </tr>
             </thead>
             <tbody>
-              {partners.map((p) => (
+              {partners.filter(p => showAll || p.is_tracked).map((p) => (
                 <tr
                   key={p.id}
                   onClick={() => setSelectedPartner(selectedPartner?.id === p.id ? null : p)}
@@ -1628,7 +1688,10 @@ export default function PartnersClient() {
 
                   {/* Company */}
                   <td className="px-3 py-3">
-                    <p className="text-white font-medium text-sm truncate max-w-[160px]">{p.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-white font-medium text-sm truncate max-w-[160px]">{p.name}</p>
+                      {p.is_tracked && <span className="text-amber-400" title="Tracked">⭐</span>}
+                    </div>
                   </td>
 
                   {/* Type */}
@@ -1680,7 +1743,10 @@ export default function PartnersClient() {
           </table>
 
           <div className="px-4 py-2 border-t border-[#2a2a2a] text-[#555] text-xs">
-            {partners.length} partner{partners.length !== 1 ? "s" : ""}
+            {partners.filter(p => showAll || p.is_tracked).length} partner{partners.filter(p => showAll || p.is_tracked).length !== 1 ? "s" : ""}
+            {!showAll && partners.length > partners.filter(p => p.is_tracked).length && (
+              <span className="ml-2 text-[#444]">({partners.length - partners.filter(p => p.is_tracked).length} untracked hidden)</span>
+            )}
           </div>
         </div>
       )}
