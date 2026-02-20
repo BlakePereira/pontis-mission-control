@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   RefreshCw, X, Plus, Check, ChevronRight, Phone, Mail, Globe,
-  MapPin, Calendar, User, AlertCircle, Clock, Building2, TrendingUp,
+  MapPin, Calendar, User, AlertCircle, Clock, Building2, TrendingUp, Trash2,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -412,10 +412,11 @@ function FormTextarea({ label, value, onChange, rows = 3, placeholder }: {
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 
-function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
+function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }: {
   partner: Partner;
   onClose: () => void;
   onUpdated: (p: Partner) => void;
+  onDeleted: (partnerId: string) => void;
 }) {
   const [partner, setPartner] = useState(initialPartner);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -435,6 +436,8 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
   const [editingInteractionId, setEditingInteractionId] = useState<string | null>(null);
   const [editInteractionForm, setEditInteractionForm] = useState<Partial<Interaction>>({});
   const [savingInteraction, setSavingInteraction] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -519,6 +522,22 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/partners/${partner.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        onDeleted(partner.id);
+        onClose();
+      }
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const completeAction = async (actionId: string) => {
     await fetch(`/api/partners/${partner.id}/actions`, {
       method: "PATCH",
@@ -566,9 +585,19 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {!editing && (
-            <button onClick={startEdit} className="px-3 py-1.5 text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white hover:border-[#444] transition-colors">
-              Edit
-            </button>
+            <>
+              <button onClick={startEdit} className="px-3 py-1.5 text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white hover:border-[#444] transition-colors">
+                Edit
+              </button>
+              <button 
+                onClick={() => setShowDeleteConfirm(true)} 
+                className="px-3 py-1.5 text-xs bg-red-900/20 border border-red-700/30 rounded-lg text-red-400 hover:bg-red-900/30 hover:border-red-700/50 transition-colors flex items-center gap-1.5"
+                title="Delete Partner"
+              >
+                <Trash2 size={12} />
+                Delete
+              </button>
+            </>
           )}
           <button onClick={onClose} className="text-[#555] hover:text-white transition-colors"><X size={20} /></button>
         </div>
@@ -1147,6 +1176,51 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#111] border border-red-700/30 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="p-5 border-b border-[#2a2a2a]">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-red-900/20 border border-red-700/30 flex items-center justify-center">
+                  <Trash2 size={18} className="text-red-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Delete Partner?</h3>
+              </div>
+              <p className="text-sm text-[#aaa] leading-relaxed">
+                Delete <span className="font-semibold text-white">{partner.name}</span>? This will also delete all contacts, interactions, and action items. This cannot be undone.
+              </p>
+            </div>
+            <div className="p-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm text-[#888] hover:text-white border border-[#2a2a2a] rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 text-sm bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    Delete Partner
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1416,6 +1490,11 @@ export default function PartnersClient() {
     if (selectedPartner?.id === p.id) setSelectedPartner(p);
   };
 
+  const handlePartnerDeleted = (partnerId: string) => {
+    setPartners((prev) => prev.filter((p) => p.id !== partnerId));
+    setSelectedPartner(null);
+  };
+
   return (
     <div className="relative">
       {/* Stats Bar */}
@@ -1614,6 +1693,7 @@ export default function PartnersClient() {
             partner={selectedPartner}
             onClose={() => setSelectedPartner(null)}
             onUpdated={handlePartnerUpdated}
+            onDeleted={handlePartnerDeleted}
           />
         </>
       )}
