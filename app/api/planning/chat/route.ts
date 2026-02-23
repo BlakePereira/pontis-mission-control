@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI, Content } from "@google/generative-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -112,35 +112,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const apiKey = process.env.GEMINI_API_KEY?.trim() || "AIzaSyAyWZ77ff-BPW5FF90ufzDToK1QMsTtr94";
     if (!apiKey) {
-      return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
+      return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
     }
 
     const ctx = await fetchPlanningContext(quarter);
     const systemPrompt = buildSystemPrompt(ctx, quarter);
 
-    const client = new Anthropic({ apiKey });
-
-    const messages: Anthropic.MessageParam[] = [
-      ...history.slice(-10).map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-      { role: "user", content: message },
-    ];
-
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages,
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: systemPrompt,
     });
 
-    const rawText = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    // Convert chat history to Gemini format
+    const contents = history.slice(-10).map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    // Add current message
+    contents.push({
+      role: "user",
+      parts: [{ text: message }],
+    });
+
+    const chatSession = model.startChat({
+      history: contents.slice(0, -1), // All messages except the last one
+    });
+
+    const result = await chatSession.sendMessage(message);
+    let rawText = result.response.text();
+
+    // Strip markdown code blocks if present
+    rawText = rawText.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '');
 
     let reply = rawText;
     let actions: unknown[] = [];
