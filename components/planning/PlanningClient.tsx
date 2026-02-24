@@ -14,8 +14,9 @@ import TodayFocus from "./TodayFocus";
 import TodayFocusSticky from "./TodayFocusSticky";
 import WeekSummary from "./WeekSummary";
 import GoalsSummary from "./GoalsSummary";
+import LaunchTab from "./LaunchTab";
 
-type TabKey = "dashboard" | "weekly" | "quarterly";
+type TabKey = "dashboard" | "weekly" | "quarterly" | "launch";
 type GoalStatus = "on_track" | "at_risk" | "behind" | "completed";
 type DailyStatus = "pending" | "in_progress" | "done" | "deferred";
 
@@ -327,6 +328,7 @@ export default function PlanningClient() {
             { key: "dashboard", label: "Dashboard", icon: CalendarDays },
             { key: "weekly", label: "Weekly", icon: ClipboardList },
             { key: "quarterly", label: "Quarterly", icon: Flag },
+            { key: "launch", label: "Launch", icon: Activity },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -808,6 +810,11 @@ export default function PlanningClient() {
           })}
           {!goals.length && <p className="text-sm text-[#999]">No goals created for this quarter.</p>}
         </div>
+      )}
+
+      {/* ──────── LAUNCH TAB ──────── */}
+      {!loading && tab === "launch" && (
+        <LaunchTab />
       )}
     </div>
   );
