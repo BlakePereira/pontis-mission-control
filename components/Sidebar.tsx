@@ -19,6 +19,8 @@ import {
   Handshake,
   TrendingUp,
   MapPin,
+  Plug,
+  Target,
 } from "lucide-react";
 
 const nav = [
@@ -26,7 +28,9 @@ const nav = [
   { href: "/planning", label: "Planning", icon: Calendar, emoji: "🗓️" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
+  { href: "/sales-pipeline", label: "Sales Pipeline", icon: TrendingUp, emoji: "🎯" },
   { href: "/sales-funnel", label: "Sales Funnel", icon: TrendingUp, emoji: "📊" },
+  { href: "/market-intelligence", label: "Market Intelligence", icon: Target, emoji: "🎯" },
   { href: "/partner-map", label: "Partner Map", icon: MapPin, emoji: "🗺️" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
   { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
@@ -36,6 +40,7 @@ const nav = [
   { href: "/security", label: "Security", icon: Shield, emoji: "🛡️" },
   { href: "/crons", label: "Cron Jobs", icon: Clock, emoji: "⏰" },
   { href: "/sessions", label: "Sessions", icon: Activity, emoji: "⚡" },
+  { href: "/mcp", label: "MCP Servers", icon: Plug, emoji: "🔌" },
   { href: "/clara", label: "Clara Console", icon: Bot, emoji: "🤖" },
   { href: "/usage", label: "Usage", icon: BarChart2, emoji: "📊" },
 ];
