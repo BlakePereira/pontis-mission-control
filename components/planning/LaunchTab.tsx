@@ -41,12 +41,12 @@ export default function LaunchTab() {
     {
       number: 1,
       title: "Proof of Concept",
-      dateRange: "March 1-24, 2026",
+      dateRange: "March 1 - April 7, 2026",
       status: "active",
-      daysRemaining: 6,
+      daysRemaining: 34,
       milestones: [
         { id: "g1-m1", title: "5+ paying monument companies (actual orders)", completed: false },
-        { id: "g1-m2", title: "50+ medallions installed in real cemeteries", completed: false },
+        { id: "g1-m2", title: "50+ medallions installed in real cemeteries", completed: false, blockers: ["China batch arrives March 29-31"] },
         { id: "g1-m3", title: "20%+ family activation rate (10+ active memorials)", completed: false },
         { id: "g1-m4", title: "1 company reorders (proves the cycle works)", completed: false },
         { id: "g1-m5", title: "Fulfillment partner network live (flowers + cleaning delivered)", completed: false },
@@ -55,7 +55,7 @@ export default function LaunchTab() {
     {
       number: 2,
       title: "Repeatable Model",
-      dateRange: "March 25 - April 21, 2026",
+      dateRange: "April 8 - May 5, 2026",
       status: "pending",
       milestones: [
         { id: "g2-m1", title: "10+ companies with 2nd order placed", completed: false },
@@ -68,7 +68,7 @@ export default function LaunchTab() {
     {
       number: 3,
       title: "Ready to Scale",
-      dateRange: "April 22 - May 19, 2026",
+      dateRange: "May 6 - June 2, 2026",
       status: "pending",
       milestones: [
         { id: "g3-m1", title: "One company doing 100+ units (back-catalog outreach worked)", completed: false },
@@ -93,7 +93,7 @@ export default function LaunchTab() {
           <div>
             <h2 className="text-xl font-bold text-white mb-1">🚀 Utah Launch & Validation</h2>
             <p className="text-sm text-emerald-300">
-              8-12 week sprint to validate model before Pennsylvania expansion
+              13-week sprint to validate model before Pennsylvania expansion (adjusted for China production delay)
             </p>
           </div>
           <div className="text-right">
@@ -287,7 +287,7 @@ export default function LaunchTab() {
                 </div>
                 <div>
                   <h4 className="text-white font-semibold">Pennsylvania Expansion</h4>
-                  <p className="text-xs text-[#999]">May 2026 (unlocks after Gate 3)</p>
+                  <p className="text-xs text-[#999]">Early June 2026 (unlocks after Gate 3)</p>
                 </div>
               </div>
             </div>
