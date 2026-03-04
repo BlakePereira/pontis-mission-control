@@ -13,8 +13,8 @@ const sbHeaders = {
 
 export async function GET(req: NextRequest) {
   try {
-    // Fetch all partners with coordinates
-    const url = `${SUPABASE_URL}/rest/v1/crm_partners?select=id,name,city,state,partner_type,pipeline_status,phone,website,latitude,longitude,delivery_radius_miles&latitude=not.is.null&longitude=not.is.null&order=name.asc`;
+    // Fetch only tracked partners with coordinates (active relationships, not sales funnel prospects)
+    const url = `${SUPABASE_URL}/rest/v1/crm_partners?select=id,name,city,state,partner_type,pipeline_status,phone,website,latitude,longitude,delivery_radius_miles&latitude=not.is.null&longitude=not.is.null&is_tracked=eq.true&order=name.asc`;
 
     const res = await fetch(url, { headers: sbHeaders });
     
