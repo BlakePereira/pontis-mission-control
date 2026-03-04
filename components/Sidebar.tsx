@@ -19,6 +19,7 @@ import {
   Handshake,
   TrendingUp,
   MapPin,
+  GraduationCap,
 } from "lucide-react";
 
 const nav = [
@@ -28,6 +29,7 @@ const nav = [
   { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
   { href: "/sales-funnel", label: "Sales Funnel", icon: TrendingUp, emoji: "📊" },
   { href: "/partner-map", label: "Partner Map", icon: MapPin, emoji: "🗺️" },
+  { href: "/onboarding", label: "Onboarding Hub", icon: GraduationCap, emoji: "🎓" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
   { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen, emoji: "📚" },
