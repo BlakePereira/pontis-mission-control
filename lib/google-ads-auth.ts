@@ -1,9 +1,22 @@
 import { google } from 'googleapis';
 
+function getRedirectUri() {
+  // Use env var for redirect URI, or default to Vercel preview
+  if (process.env.GOOGLE_ADS_REDIRECT_URI) {
+    return process.env.GOOGLE_ADS_REDIRECT_URI;
+  }
+  // For Vercel deployments
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api/google-ads/callback`;
+  }
+  // Fallback to localhost for local dev
+  return 'http://localhost:3000/api/google-ads/callback';
+}
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_ADS_CLIENT_ID,
   process.env.GOOGLE_ADS_CLIENT_SECRET,
-  'http://localhost:3000/api/google-ads/callback' // Change to production URL when deploying
+  getRedirectUri()
 );
 
 export function getAuthUrl() {
