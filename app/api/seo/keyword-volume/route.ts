@@ -11,49 +11,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'keyword parameter is required' }, { status: 400 });
     }
 
-    // Initialize Google Ads API client
-    const client = new GoogleAdsApi({
-      client_id: process.env.GOOGLE_ADS_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET!,
-      developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-    });
-
-    const customer = client.Customer({
-      customer_id: process.env.GOOGLE_ADS_CUSTOMER_ID!,
-      refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
-    });
-
-    // Use Keyword Planner to get search volume
-    const response = await customer.keywordPlanIdeas.generateKeywordIdeas({
-      customer_id: process.env.GOOGLE_ADS_CUSTOMER_ID!,
-      keyword_seed: {
-        keywords: [keyword],
-      },
-      ...(location && {
-        geo_target_constants: [await getLocationId(location)],
-      }),
-    });
-
-    if (!response.results || response.results.length === 0) {
-      return NextResponse.json({
-        keyword,
-        location: location || 'all',
-        monthly_searches: 0,
-        competition: 'unknown',
-      });
-    }
-
-    const result = response.results[0];
-    const monthlySearches = result.keyword_idea_metrics?.avg_monthly_searches || 0;
-    const competition = result.keyword_idea_metrics?.competition || 'UNSPECIFIED';
-
-    return NextResponse.json({
+    // For now, return mock data until we complete OAuth flow
+    // TODO: Replace with real Google Ads API call after getting refresh token
+    const mockData = {
       keyword,
       location: location || 'all',
-      monthly_searches: monthlySearches,
-      competition: competition.toLowerCase(),
-      raw_data: result,
-    });
+      monthly_searches: Math.floor(Math.random() * 10000) + 1000,
+      competition: 'medium',
+      status: 'mock_data',
+      message: 'Real data will be available after completing OAuth flow'
+    };
+
+    return NextResponse.json(mockData);
   } catch (error: any) {
     console.error('Error fetching keyword volume:', error);
     return NextResponse.json({
