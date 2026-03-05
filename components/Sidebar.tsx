@@ -19,6 +19,9 @@ import {
   Handshake,
   TrendingUp,
   MapPin,
+  Target,
+  Plug,
+  ClipboardList,
 } from "lucide-react";
 
 const nav = [
@@ -26,13 +29,17 @@ const nav = [
   { href: "/planning", label: "Planning", icon: Calendar, emoji: "🗓️" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
+  { href: "/onboarding", label: "Onboarding Hub", icon: ClipboardList, emoji: "📋" },
   { href: "/sales-funnel", label: "Sales Funnel", icon: TrendingUp, emoji: "📊" },
   { href: "/partner-map", label: "Partner Map", icon: MapPin, emoji: "🗺️" },
+  { href: "/market-intelligence", label: "Market Intelligence", icon: Target, emoji: "🎯" },
   { href: "/kanban", label: "Kanban", icon: Kanban, emoji: "📋" },
+  { href: "/goals", label: "Goals", icon: Target, emoji: "🎯" },
   { href: "/team", label: "Pontis Team", icon: Users, emoji: "👥" },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen, emoji: "📚" },
   { href: "/bible", label: "Bible", icon: BookOpen, emoji: "📖" },
   { href: "/loops", label: "Open Loops", icon: ListChecks, emoji: "🔁" },
+  { href: "/mcp", label: "MCP Servers", icon: Plug, emoji: "🔌" },
   { href: "/security", label: "Security", icon: Shield, emoji: "🛡️" },
   { href: "/crons", label: "Cron Jobs", icon: Clock, emoji: "⏰" },
   { href: "/sessions", label: "Sessions", icon: Activity, emoji: "⚡" },
@@ -93,7 +100,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           const showBadge = href === "/security" && securityCriticalCount > 0;
