@@ -4,11 +4,63 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Handshake, Users, Copy, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Building2, Handshake, Users, Copy, Check, ChevronDown, ChevronRight, Mail, Video, Calculator, FileText } from "lucide-react";
+import DocumentsTab from "./DocumentsTab";
 
 export default function OnboardingClient() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  
+  // Revenue Calculator State
+  const [companyName, setCompanyName] = useState("Monument Company");
+  const [monumentsPerYear, setMonumentsPerYear] = useState(200);
+  const [medallionPrice, setMedallionPrice] = useState(25);
+  const [subscriptionRate, setSubscriptionRate] = useState(15);
+  const [subscriptionValue, setSubscriptionValue] = useState(149);
+
+  // Video Library State
+  const [videos, setVideos] = useState([
+    {
+      id: "pontis-2min",
+      title: "Pontis in 2 Minutes",
+      description: "Quick overview for cold outreach",
+      status: "Not yet recorded",
+      audience: "All",
+      link: ""
+    },
+    {
+      id: "dashboard-tour",
+      title: "Monument Company Dashboard Tour",
+      description: "What partners see when they log in",
+      status: "Not yet recorded",
+      audience: "Monument Companies",
+      link: ""
+    },
+    {
+      id: "family-walkthrough",
+      title: "Family Experience Walkthrough",
+      description: "QR scan → memorial → flowers",
+      status: "Not yet recorded",
+      audience: "Families",
+      link: ""
+    },
+    {
+      id: "florist-orders",
+      title: "Florist Partner: How Orders Work",
+      description: "Order flow, delivery, payouts",
+      status: "Not yet recorded",
+      audience: "Florists",
+      link: ""
+    },
+    {
+      id: "installation-guide",
+      title: "Installation & Activation Guide",
+      description: "How to install and activate a medallion",
+      status: "Not yet recorded",
+      audience: "Monument Companies",
+      link: ""
+    }
+  ]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -18,6 +70,62 @@ export default function OnboardingClient() {
 
   const toggleSection = (id: string) => {
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const updateVideoLink = (id: string, link: string) => {
+    setVideos(prev => prev.map(v => v.id === id ? { ...v, link } : v));
+  };
+
+  const toggleVideoStatus = (id: string) => {
+    setVideos(prev => prev.map(v => 
+      v.id === id 
+        ? { ...v, status: v.status === "Not yet recorded" ? "Recorded" : "Not yet recorded" }
+        : v
+    ));
+  };
+
+  // Revenue Calculator
+  const annualMedallionRevenue = monumentsPerYear * medallionPrice;
+  const annualSubscriptionRevenue = monumentsPerYear * (subscriptionRate / 100) * subscriptionValue;
+  const totalAnnualRevenue = annualMedallionRevenue + annualSubscriptionRevenue;
+  const monthlyRecurring = annualSubscriptionRevenue / 12;
+  const partnerResidual = annualSubscriptionRevenue * 0.1;
+
+  const generateOnePagerText = () => {
+    return `${companyName} - Pontis Revenue Projection
+
+ANNUAL REVENUE OPPORTUNITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Medallion Revenue:        $${annualMedallionRevenue.toLocaleString()}
+Subscription Revenue:     $${annualSubscriptionRevenue.toLocaleString()}
+Total Annual Revenue:     $${totalAnnualRevenue.toLocaleString()}
+Monthly Recurring:        $${monthlyRecurring.toLocaleString()}
+Partner Residual (10%):   $${partnerResidual.toLocaleString()}
+
+ASSUMPTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• ${monumentsPerYear} monuments per year
+• $${medallionPrice} per medallion
+• ${subscriptionRate}% family subscription rate
+• $${subscriptionValue}/year average subscription value
+
+WHY PONTIS?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Turn every headstone into a living digital memorial
+✓ Families access from anywhere via QR code
+✓ Recurring revenue from flower deliveries & cleaning services
+✓ Zero ongoing work after installation
+✓ Build lasting relationships with families
+✓ Modern, tech-forward offering that differentiates you
+
+NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Order initial medallion batch
+2. 15-minute team training
+3. Install on next headstones
+4. Start earning recurring revenue
+
+Contact: Blake Pereira | blake@pontis.life | pontis.life`;
   };
 
   const Section = ({ 
@@ -78,6 +186,44 @@ export default function OnboardingClient() {
     </div>
   );
 
+  const EmailTemplate = ({
+    id,
+    subject,
+    body
+  }: {
+    id: string;
+    subject: string;
+    body: string;
+  }) => (
+    <div className="space-y-3">
+      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+        <p className="text-gray-400 text-xs mb-1">Subject:</p>
+        <p className="text-white font-medium mb-3">{subject}</p>
+        <p className="text-gray-400 text-xs mb-2">Body:</p>
+        <textarea
+          className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded p-3 text-gray-300 text-sm font-mono min-h-[200px] focus:outline-none focus:border-[#10b981]"
+          defaultValue={body}
+        />
+      </div>
+      <button
+        onClick={() => copyToClipboard(`Subject: ${subject}\n\n${body}`, id)}
+        className="w-full flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#0ea472] text-white py-2 px-4 rounded transition-colors"
+      >
+        {copiedId === id ? (
+          <>
+            <Check size={16} />
+            Copied!
+          </>
+        ) : (
+          <>
+            <Copy size={16} />
+            Copy Template
+          </>
+        )}
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -91,7 +237,7 @@ export default function OnboardingClient() {
 
         {/* Main Tabs */}
         <Tabs defaultValue="monument-companies" className="space-y-4">
-          <TabsList className="bg-[#0f0f0f] border border-[#2a2a2a]">
+          <TabsList className="bg-[#0f0f0f] border border-[#2a2a2a] flex-wrap">
             <TabsTrigger value="monument-companies" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
               <Building2 size={16} className="mr-2" />
               Monument Companies
@@ -103,6 +249,22 @@ export default function OnboardingClient() {
             <TabsTrigger value="family-experience" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
               <Users size={16} className="mr-2" />
               Family Experience
+            </TabsTrigger>
+            <TabsTrigger value="email-templates" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
+              <Mail size={16} className="mr-2" />
+              Email Templates
+            </TabsTrigger>
+            <TabsTrigger value="video-library" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
+              <Video size={16} className="mr-2" />
+              Video Library
+            </TabsTrigger>
+            <TabsTrigger value="revenue-calculator" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
+              <Calculator size={16} className="mr-2" />
+              Revenue Calculator
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
+              <FileText size={16} className="mr-2" />
+              Documents
             </TabsTrigger>
           </TabsList>
 
@@ -672,6 +834,537 @@ What questions do you have before we move forward?"`}
                 </div>
               </Section>
             </div>
+          </TabsContent>
+
+          {/* Email Templates Tab */}
+          <TabsContent value="email-templates">
+            <div className="space-y-4">
+              <Section id="monument-templates" title="Monument Company Templates">
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">1.</span> Intro / Cold Outreach
+                    </h4>
+                    <EmailTemplate
+                      id="mc-intro"
+                      subject="Helping [CONTACT_NAME] turn headstones into lasting legacies"
+                      body={`Hi [CONTACT_NAME],
+
+I'm [Your Name] from Pontis. I wanted to reach out because we're working with monument companies across [STATE/REGION] to add a simple but powerful feature to their headstones: QR code medallions that turn each memorial into a living digital tribute.
+
+Here's the idea: families scan the QR code with their phone and are taken to a beautiful memorial page where they can upload photos, share stories, and keep their loved one's memory alive. You stay connected to families through optional flower deliveries and headstone cleaning services — and earn recurring income from every subscription.
+
+Most monument companies see ROI within the first month, and families love it.
+
+Would you be open to a 15-minute demo? I can show you exactly how it works and answer any questions.
+
+Best,
+[Your Name]
+[Your Title] | Pontis
+[Your Email] | [Your Phone]
+pontis.life`}
+                    />
+                  </div>
+
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">2.</span> Post-Demo Follow-Up
+                    </h4>
+                    <EmailTemplate
+                      id="mc-followup"
+                      subject="Thanks for the demo today, [CONTACT_NAME]"
+                      body={`Hi [CONTACT_NAME],
+
+Thanks for taking the time to walk through Pontis with me today. I really enjoyed learning about [COMPANY_NAME] and hearing your thoughts on digital memorials.
+
+Here's a quick recap of what we covered:
+• QR medallions that families scan to access digital memorials
+• Recurring revenue from flower subscriptions and headstone cleaning
+• Zero ongoing work after installation — we handle fulfillment
+• Typical ROI within the first [X] installations
+
+Next steps:
+1. Review pricing: [$25/medallion, 40-60% subscription revenue split]
+2. Let me know your preferred initial order quantity (most companies start with 50-100)
+3. Schedule a brief training call for your team (10-15 minutes)
+
+I'm here if you have any questions. Otherwise, let me know when you'd like to move forward and I'll get everything set up.
+
+Best,
+[Your Name]
+[Your Title] | Pontis
+[Your Email] | [Your Phone]`}
+                    />
+                  </div>
+
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">3.</span> Contract & Pricing
+                    </h4>
+                    <EmailTemplate
+                      id="mc-pricing"
+                      subject="Pontis Partnership Agreement & Pricing for [COMPANY_NAME]"
+                      body={`Hi [CONTACT_NAME],
+
+Excited to get [COMPANY_NAME] set up with Pontis! Attached is the partnership agreement with all the details we discussed.
+
+PRICING SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Medallion Cost: $25/unit (or $40/unit at scale)
+Your Revenue Share: 40-60% of subscription revenue
+Flower Subscriptions: $169-369/year per family
+Headstone Cleaning: $65-120 per service
+
+Initial order: [X] medallions = $[TOTAL]
+
+To move forward:
+1. Review and sign the attached agreement (DocuSign link)
+2. Submit W-9 for payment setup
+3. Confirm shipping address
+4. We'll schedule training and ship your first batch
+
+Let me know if you have any questions. Looking forward to working together!
+
+Best,
+[Your Name]
+[Your Title] | Pontis
+[Your Email] | [Your Phone]`}
+                    />
+                  </div>
+
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">4.</span> Welcome / Post-Signing
+                    </h4>
+                    <EmailTemplate
+                      id="mc-welcome"
+                      subject="Welcome to Pontis, [COMPANY_NAME]! Here's what happens next"
+                      body={`Hi [CONTACT_NAME],
+
+Welcome to Pontis! We're thrilled to have [COMPANY_NAME] as a partner.
+
+Your medallions are being prepared and will ship within [X] business days. In the meantime, here's what to expect:
+
+THIS WEEK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Training call scheduled for [DATE/TIME]
+✓ Portal login credentials sent separately
+✓ Medallion shipment tracking info coming soon
+
+WHAT YOU'LL LEARN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• How to install medallions (takes 30 seconds)
+• How families activate memorials
+• How to track subscriptions in your dashboard
+• Best practices for pitching Pontis to families
+
+SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Portal: partners.pontis.life
+Email: support@pontis.life
+Phone: [SUPPORT PHONE]
+
+Looking forward to seeing your first installations go live!
+
+Best,
+[Your Name]
+[Your Title] | Pontis`}
+                    />
+                  </div>
+
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">5.</span> First Order Guide
+                    </h4>
+                    <EmailTemplate
+                      id="mc-first-order"
+                      subject="Step-by-step: Installing your first Pontis medallion"
+                      body={`Hi [CONTACT_NAME],
+
+Congrats on getting your medallions! Here's a quick step-by-step guide for your first installation:
+
+INSTALLATION (30 seconds)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Clean the headstone surface (dry, no dust)
+2. Peel the adhesive backing from the medallion
+3. Press firmly onto the headstone (lower right corner is standard)
+4. Hold for 10 seconds — done!
+
+FAMILY ACTIVATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Families scan the QR code with their phone camera → auto-opens memorial setup page → they create their account and add photos/stories. That's it. You don't need to do anything else.
+
+TRACKING SUBSCRIPTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Log in to partners.pontis.life to see which families have activated memorials and subscribed to services. Revenue share is calculated automatically and paid monthly.
+
+TIPS FOR SUCCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Mention the medallion during the headstone consultation ("We include a digital memorial that families can access from anywhere")
+• Show a demo on your phone if they're curious
+• Most families love it — it's free for them, adds value, and keeps you connected
+
+Questions? Just reply to this email or call [PHONE].
+
+Best,
+[Your Name]
+[Your Title] | Pontis`}
+                    />
+                  </div>
+                </div>
+              </Section>
+
+              <Section id="fulfillment-templates" title="Fulfillment Partner Templates">
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">1.</span> Partner Intro
+                    </h4>
+                    <EmailTemplate
+                      id="fp-intro"
+                      subject="Opportunity: Partner with Pontis for gravesite flower deliveries"
+                      body={`Hi [CONTACT_NAME],
+
+I'm [Your Name] from Pontis. We're building a network of local florists to fulfill flower deliveries for digital memorial subscriptions, and I thought [COMPANY_NAME] might be a great fit.
+
+Here's how it works:
+• Families subscribe to seasonal flower deliveries at gravesites (we handle sales/billing)
+• We send you delivery requests in your service area
+• You deliver flowers, upload a photo, and get paid $45-100 per delivery
+• Payment via direct deposit within [X] days
+
+We're working with monument companies across [REGION] and expect [X] deliveries per month in your area. No upfront costs, no exclusivity requirements — just reliable income for work you're already equipped to do.
+
+Would you be interested in learning more? I can send over the full partner details or jump on a quick call.
+
+Best,
+[Your Name]
+[Your Title] | Pontis
+[Your Email] | [Your Phone]`}
+                    />
+                  </div>
+
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">2.</span> Payout & Terms Overview
+                    </h4>
+                    <EmailTemplate
+                      id="fp-payout"
+                      subject="Pontis Partner Payouts & Terms"
+                      body={`Hi [CONTACT_NAME],
+
+Thanks for your interest in partnering with Pontis! Here's a breakdown of how payouts work:
+
+PAYOUT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Standard delivery (within 20 mi): $45-60
+Extended delivery (20-50 mi): $60-80
+Remote delivery (50+ mi): $80-100
+
+Headstone cleaning (if applicable):
+Basic cleaning: $35-50
+Deep cleaning: $60-90
+
+REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Photo proof of delivery (uploaded via partner portal)
+✓ Deliver within 3-day window of scheduled date
+✓ Professional quality (families are grieving — expectations are high)
+
+PAYMENT TERMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Payments batch weekly on [DAY]
+• Direct deposit within [X] days of photo upload
+• First payment may take [Y] days while banking info is verified
+
+SERVICE AREA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You define your service radius (e.g., "20 miles from [ZIP]"). We only send requests within your coverage area. Update anytime in the portal.
+
+Next step: If this sounds good, I'll send over the partner agreement to review and sign. Let me know if you have questions!
+
+Best,
+[Your Name]
+[Your Title] | Pontis`}
+                    />
+                  </div>
+
+                  <div>
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="text-[#10b981]">3.</span> Welcome / Go-Live
+                    </h4>
+                    <EmailTemplate
+                      id="fp-welcome"
+                      subject="Welcome to the Pontis fulfillment network!"
+                      body={`Hi [CONTACT_NAME],
+
+Welcome to Pontis! [COMPANY_NAME] is now live in our fulfillment network and eligible to receive delivery requests.
+
+HERE'S WHAT TO EXPECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. You'll receive delivery requests via email and in your partner portal
+2. Each request includes: family name, gravesite location, delivery date, special instructions
+3. You deliver flowers, take a photo, and upload it to the portal
+4. Photo is auto-sent to the family and you're paid within [X] days
+
+YOUR FIRST DELIVERY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+We'll send you a test delivery within [X] days to make sure everything works smoothly. Treat it like a real order — this is your chance to practice the photo upload process.
+
+PORTAL ACCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Login: partners.pontis.life/fulfillment
+Username: [EMAIL]
+Temp password: [PASSWORD] (change after first login)
+
+SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Questions? Email support@pontis.life or call [PHONE].
+
+Thanks for partnering with us — looking forward to working together!
+
+Best,
+[Your Name]
+[Your Title] | Pontis`}
+                    />
+                  </div>
+                </div>
+              </Section>
+            </div>
+          </TabsContent>
+
+          {/* Video Library Tab */}
+          <TabsContent value="video-library">
+            <div className="space-y-4">
+              <div className="p-4 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg mb-6">
+                <h3 className="text-[#10b981] font-medium mb-2">📹 Video Library</h3>
+                <p className="text-gray-300 text-sm">
+                  Placeholder cards for videos you plan to record. Toggle status, add shareable links, and manage video content for different audiences.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {videos.map((video) => (
+                  <Card key={video.id} className="bg-[#0f0f0f] border-[#2a2a2a]">
+                    <CardHeader>
+                      <div className="flex items-start justify-between mb-2">
+                        <CardTitle className="text-white text-lg">{video.title}</CardTitle>
+                        <button
+                          onClick={() => toggleVideoStatus(video.id)}
+                          className="flex-shrink-0"
+                        >
+                          {video.status === "Recorded" ? (
+                            <Badge className="bg-[#10b981] hover:bg-[#0ea472] cursor-pointer">
+                              ✅ Recorded
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-700 hover:bg-gray-600 cursor-pointer">
+                              🎬 Not Yet Recorded
+                            </Badge>
+                          )}
+                        </button>
+                      </div>
+                      <CardDescription className="text-gray-400">{video.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <p className="text-gray-400 text-xs mb-1">Target Audience:</p>
+                        <Badge variant="outline" className="text-[#10b981] border-[#10b981]/30">
+                          {video.audience}
+                        </Badge>
+                      </div>
+                      
+                      <div>
+                        <label className="text-gray-400 text-xs mb-1 block">Shareable Link:</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={video.link}
+                            onChange={(e) => updateVideoLink(video.id, e.target.value)}
+                            placeholder="Paste video URL here..."
+                            className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-2 text-gray-300 text-sm focus:outline-none focus:border-[#10b981]"
+                          />
+                          {video.link && (
+                            <button
+                              onClick={() => copyToClipboard(video.link, video.id)}
+                              className="p-2 bg-[#10b981]/10 border border-[#10b981]/30 rounded hover:bg-[#10b981]/20 transition-colors"
+                              title="Copy link"
+                            >
+                              {copiedId === video.id ? (
+                                <Check size={16} className="text-[#10b981]" />
+                              ) : (
+                                <Copy size={16} className="text-[#10b981]" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {video.link && (
+                        <a
+                          href={video.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-[#10b981] hover:underline text-sm"
+                        >
+                          View Video →
+                        </a>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Revenue Calculator Tab */}
+          <TabsContent value="revenue-calculator">
+            <div className="space-y-6">
+              <div className="p-4 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg">
+                <h3 className="text-[#10b981] font-medium mb-2">💰 Revenue Calculator</h3>
+                <p className="text-gray-300 text-sm">
+                  Generate custom revenue projections and one-pagers for monument company prospects. All calculations update in real-time.
+                </p>
+              </div>
+
+              <Card className="bg-[#0f0f0f] border-[#2a2a2a]">
+                <CardHeader>
+                  <CardTitle className="text-white">Input Assumptions</CardTitle>
+                  <CardDescription className="text-gray-400">Adjust values to see revenue projections update live</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-gray-400 text-sm mb-2 block">Company Name</label>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-4 py-2 text-white focus:outline-none focus:border-[#10b981]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">Estimated Monuments per Year</label>
+                      <input
+                        type="number"
+                        value={monumentsPerYear}
+                        onChange={(e) => setMonumentsPerYear(Number(e.target.value))}
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-4 py-2 text-white focus:outline-none focus:border-[#10b981]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">Medallion Price ($)</label>
+                      <input
+                        type="number"
+                        value={medallionPrice}
+                        onChange={(e) => setMedallionPrice(Number(e.target.value))}
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-4 py-2 text-white focus:outline-none focus:border-[#10b981]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">Estimated Flower Subscription Rate (%)</label>
+                      <input
+                        type="number"
+                        value={subscriptionRate}
+                        onChange={(e) => setSubscriptionRate(Number(e.target.value))}
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-4 py-2 text-white focus:outline-none focus:border-[#10b981]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">Average Subscription Value ($/year)</label>
+                      <input
+                        type="number"
+                        value={subscriptionValue}
+                        onChange={(e) => setSubscriptionValue(Number(e.target.value))}
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-4 py-2 text-white focus:outline-none focus:border-[#10b981]"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0f0f0f] border-[#2a2a2a]">
+                <CardHeader>
+                  <CardTitle className="text-white">Revenue Projections</CardTitle>
+                  <CardDescription className="text-gray-400">Auto-calculated based on your inputs</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
+                      <p className="text-gray-400 text-sm mb-1">Annual Medallion Revenue</p>
+                      <p className="text-white text-2xl font-bold">${annualMedallionRevenue.toLocaleString()}</p>
+                    </div>
+
+                    <div className="p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
+                      <p className="text-gray-400 text-sm mb-1">Annual Subscription Revenue</p>
+                      <p className="text-white text-2xl font-bold">${annualSubscriptionRevenue.toLocaleString()}</p>
+                    </div>
+
+                    <div className="p-4 bg-[#10b981]/10 border border-[#10b981]/30 rounded-lg">
+                      <p className="text-[#10b981] text-sm mb-1">Total Annual Revenue</p>
+                      <p className="text-white text-2xl font-bold">${totalAnnualRevenue.toLocaleString()}</p>
+                    </div>
+
+                    <div className="p-4 bg-[#10b981]/10 border border-[#10b981]/30 rounded-lg">
+                      <p className="text-[#10b981] text-sm mb-1">Monthly Recurring</p>
+                      <p className="text-white text-2xl font-bold">${monthlyRecurring.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
+                    <p className="text-gray-400 text-sm mb-1">Partner Residual (10% of subscription revenue)</p>
+                    <p className="text-white text-xl font-bold">${partnerResidual.toLocaleString()}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0f0f0f] border-[#2a2a2a]">
+                <CardHeader>
+                  <CardTitle className="text-white">One-Pager Preview</CardTitle>
+                  <CardDescription className="text-gray-400">Share this projection with prospects</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+                    <pre className="text-gray-300 text-sm whitespace-pre-wrap font-mono">{generateOnePagerText()}</pre>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => copyToClipboard(generateOnePagerText(), "one-pager")}
+                      className="flex-1 flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#0ea472] text-white py-3 px-4 rounded transition-colors"
+                    >
+                      {copiedId === "one-pager" ? (
+                        <>
+                          <Check size={16} />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={16} />
+                          Copy as Text
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => window.print()}
+                      className="flex-1 flex items-center justify-center gap-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white border border-[#2a2a2a] py-3 px-4 rounded transition-colors"
+                    >
+                      📄 Print / Save as PDF
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents">
+            <DocumentsTab />
           </TabsContent>
         </Tabs>
       </div>
