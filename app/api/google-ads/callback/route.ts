@@ -7,21 +7,36 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     
     if (!code) {
-      return NextResponse.json({ error: 'No authorization code provided' }, { status: 400 });
+      // If called from the callback page, return JSON error
+      if (request.headers.get('accept')?.includes('application/json')) {
+        return NextResponse.json({ error: 'No authorization code provided' }, { status: 400 });
+      }
+      // Otherwise redirect to error page
+      return NextResponse.redirect(new URL('/google-ads-callback?error=no_code', request.url));
     }
 
     const tokens = await getTokenFromCode(code);
     
-    // In production, you'd store this refresh_token securely (database or env var)
-    // For now, we'll display it so Joe can add it to Vercel env vars
-    return NextResponse.json({
-      message: 'Authorization successful! Add this refresh token to Vercel env vars as GOOGLE_ADS_REFRESH_TOKEN',
-      refresh_token: tokens.refresh_token,
-      access_token: tokens.access_token,
-      expiry_date: tokens.expiry_date
-    });
+    // If this is an API request (from the callback page), return JSON
+    if (request.headers.get('accept')?.includes('application/json')) {
+      return NextResponse.json({
+        message: 'Authorization successful!',
+        refresh_token: tokens.refresh_token,
+        access_token: tokens.access_token,
+        expiry_date: tokens.expiry_date
+      });
+    }
+    
+    // Otherwise redirect to the callback page which will fetch the tokens
+    return NextResponse.redirect(new URL(`/google-ads-callback?code=${code}`, request.url));
+    
   } catch (error) {
     console.error('Error in OAuth callback:', error);
-    return NextResponse.json({ error: 'Failed to exchange authorization code' }, { status: 500 });
+    
+    if (request.headers.get('accept')?.includes('application/json')) {
+      return NextResponse.json({ error: 'Failed to exchange authorization code' }, { status: 500 });
+    }
+    
+    return NextResponse.redirect(new URL('/google-ads-callback?error=exchange_failed', request.url));
   }
 }

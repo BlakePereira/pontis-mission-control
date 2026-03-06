@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, MapPin, Search, Target } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, Minus, MapPin, Search, Target, Link as LinkIcon, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface MarketData {
   metro: string;
@@ -28,8 +30,11 @@ interface KeywordData {
 
 export default function MarketIntelligenceClient() {
   const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [dataSource, setDataSource] = useState<'mock' | 'google-ads'>('mock');
   const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [keywordData, setKeywordData] = useState<KeywordData[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMarketData();
@@ -39,13 +44,28 @@ export default function MarketIntelligenceClient() {
     try {
       const response = await fetch("/api/market-intelligence");
       const data = await response.json();
-      setMarketData(data.markets || []);
-      setKeywordData(data.keywords || []);
+      
+      if (response.status === 401) {
+        setConnected(false);
+        setError(data.message);
+      } else {
+        setConnected(data.connected || false);
+        setDataSource(data.dataSource || 'mock');
+        setMarketData(data.markets || []);
+        setKeywordData(data.keywords || []);
+        setError(null);
+      }
     } catch (error) {
       console.error("Failed to fetch market data:", error);
+      setError("Failed to load market data");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleConnectGoogleAds() {
+    // Redirect to the OAuth auth endpoint
+    window.location.href = '/api/google-ads/auth';
   }
 
   const getOpportunityBadge = (score: number) => {
@@ -94,11 +114,43 @@ export default function MarketIntelligenceClient() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold mb-2">Monument Market Intelligence</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold">Monument Market Intelligence</h1>
+            {!connected && !loading && (
+              <Button 
+                onClick={handleConnectGoogleAds}
+                className="bg-[#10b981] hover:bg-[#059669] text-white"
+              >
+                <LinkIcon size={16} className="mr-2" />
+                Connect Google Ads
+              </Button>
+            )}
+            {connected && dataSource === 'mock' && (
+              <Badge className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                ⚠️ Using Mock Data
+              </Badge>
+            )}
+            {connected && dataSource === 'google-ads' && (
+              <Badge className="bg-green-500/10 text-green-500 border border-green-500/20">
+                ✅ Connected to Google Ads
+              </Badge>
+            )}
+          </div>
           <p className="text-gray-400">
             Search demand analysis and geographic opportunity mapping for monument industry sales prioritization
           </p>
         </div>
+
+        {/* Connection Alert */}
+        {!connected && !loading && (
+          <Alert className="bg-yellow-500/10 border-yellow-500/20">
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
+            <AlertDescription className="text-yellow-200">
+              <strong>Google Ads not connected.</strong> Click "Connect Google Ads" above to authorize access to real keyword planner data. 
+              Currently showing mock data for demonstration.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -315,9 +367,19 @@ export default function MarketIntelligenceClient() {
               <div>
                 <h4 className="text-white font-medium mb-1">About This Data</h4>
                 <p className="text-gray-400 text-sm">
-                  Market intelligence is refreshed monthly using Google Keyword Planner data. 
-                  Opportunity scores are calculated based on search volume, market saturation, Pontis coverage, 
-                  and regional growth trends. Last updated: <span className="text-white">March 3, 2026</span>
+                  {dataSource === 'google-ads' ? (
+                    <>
+                      Market intelligence is refreshed monthly using <span className="text-[#10b981]">Google Keyword Planner API</span>. 
+                      Opportunity scores are calculated based on search volume, market saturation, Pontis coverage, 
+                      and regional growth trends. Last updated: <span className="text-white">March 6, 2026</span>
+                    </>
+                  ) : (
+                    <>
+                      Currently showing <span className="text-yellow-500">mock demonstration data</span>. 
+                      Connect Google Ads above to access real search volume data from Google Keyword Planner. 
+                      Opportunity scores will be calculated based on actual search demand, market saturation, and regional trends.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
