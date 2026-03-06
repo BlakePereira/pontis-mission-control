@@ -22,6 +22,7 @@ import {
   Target,
   Plug,
   ClipboardList,
+  LineChart,
 } from "lucide-react";
 
 const nav = [
@@ -30,6 +31,7 @@ const nav = [
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/partners", label: "Partners", icon: Handshake, emoji: "🤝" },
   { href: "/onboarding", label: "Onboarding Hub", icon: ClipboardList, emoji: "📋" },
+  { href: "/analytics/setup", label: "Setup Analytics", icon: LineChart, emoji: "📊" },
   { href: "/sales-funnel", label: "Sales Funnel", icon: TrendingUp, emoji: "📊" },
   { href: "/partner-map", label: "Partner Map", icon: MapPin, emoji: "🗺️" },
   { href: "/market-intelligence", label: "Market Intelligence", icon: Target, emoji: "🎯" },
