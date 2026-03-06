@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Minus, MapPin, Search, Target, Link as LinkIcon, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface MarketData {
   metro: string;
@@ -143,13 +142,13 @@ export default function MarketIntelligenceClient() {
 
         {/* Connection Alert */}
         {!connected && !loading && (
-          <Alert className="bg-yellow-500/10 border-yellow-500/20">
-            <AlertCircle className="h-4 w-4 text-yellow-500" />
-            <AlertDescription className="text-yellow-200">
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+            <p className="text-yellow-200 text-sm">
               <strong>Google Ads not connected.</strong> Click "Connect Google Ads" above to authorize access to real keyword planner data. 
               Currently showing mock data for demonstration.
-            </AlertDescription>
-          </Alert>
+            </p>
+          </div>
         )}
 
         {/* Stats Overview */}
