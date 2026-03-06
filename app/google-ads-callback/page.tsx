@@ -14,6 +14,12 @@ export default function GoogleAdsCallbackPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!searchParams) {
+      setError('No search parameters');
+      setLoading(false);
+      return;
+    }
+    
     const code = searchParams.get('code');
     
     if (!code) {
