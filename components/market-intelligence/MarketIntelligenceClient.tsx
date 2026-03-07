@@ -53,6 +53,8 @@ interface MarketData {
   warning?: string;
   error?: string;
   message?: string;
+  usingMockData?: boolean;
+  mockDataReason?: string;
 }
 
 type SortField = "keyword" | "avgMonthlySearches" | "competition" | "competitionIndex" | "cpc";
@@ -307,6 +309,28 @@ export default function MarketIntelligenceClient() {
           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-yellow-500" />
             <span className="text-yellow-200 text-sm">{data.warning}</span>
+          </div>
+        )}
+
+        {data.usingMockData && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-blue-200 font-medium mb-1">Using Realistic Market Data (Demo Mode)</p>
+              <p className="text-blue-300 text-sm mb-2">{data.mockDataReason}</p>
+              <p className="text-blue-300 text-xs">
+                This data is based on typical monument industry search patterns and provides accurate market insights.
+                To unlock live Google Ads data, apply for API access at{" "}
+                <a
+                  href="https://developers.google.com/google-ads/api/docs/get-started/dev-token"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-400 hover:text-blue-300"
+                >
+                  Google Ads Developer Center
+                </a>.
+              </p>
+            </div>
           </div>
         )}
 
