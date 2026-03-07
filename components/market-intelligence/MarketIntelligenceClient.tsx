@@ -523,7 +523,7 @@ export default function MarketIntelligenceClient() {
                             borderRadius: "8px",
                             color: "#fff",
                           }}
-                          formatter={(value: number) => [formatNumber(value), "Monthly Searches"]}
+                          formatter={(value: any) => [formatNumber(Number(value)), "Monthly Searches"]}
                         />
                         <Bar dataKey="volume" radius={[0, 4, 4, 0]}>
                           {categoryChartData.map((entry, index) => (
@@ -793,7 +793,7 @@ export default function MarketIntelligenceClient() {
                             borderRadius: "8px",
                             color: "#fff",
                           }}
-                          formatter={(value: number) => [formatNumber(value), "Total Searches"]}
+                          formatter={(value: any) => [formatNumber(Number(value)), "Total Searches"]}
                         />
                         <Line
                           type="monotone"

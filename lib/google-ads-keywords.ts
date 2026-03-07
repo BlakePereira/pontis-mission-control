@@ -1,7 +1,7 @@
-import { GoogleAdsApi } from 'google-ads-api';
+import { getOAuth2Client } from './google-ads-auth';
 
 // Keyword categories for Pontis market intelligence
-export const KEYWORD_CATEGORIES = {
+export const KEYWORD_CATEGORIES: Record<string, string[]> = {
   'Memorial Tech': [
     'QR code headstone',
     'digital memorial',
@@ -64,12 +64,12 @@ export const KEYWORD_CATEGORIES = {
 
 export const ALL_KEYWORDS = Object.values(KEYWORD_CATEGORIES).flat();
 
-interface KeywordResult {
+export interface KeywordResult {
   keyword: string;
   category: string;
   avgMonthlySearches: number;
   competition: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED';
-  competitionIndex: number; // 0-100
+  competitionIndex: number;
   lowTopOfPageBidMicros: number;
   highTopOfPageBidMicros: number;
   monthlySearchVolumes: Array<{
@@ -79,7 +79,7 @@ interface KeywordResult {
   }>;
 }
 
-interface MarketIntelligenceData {
+export interface MarketIntelligenceData {
   keywords: KeywordResult[];
   totalMonthlySearches: number;
   categories: Record<string, {
@@ -89,7 +89,7 @@ interface MarketIntelligenceData {
     avgCpcLow: number;
     avgCpcHigh: number;
   }>;
-  topOpportunities: KeywordResult[]; // high volume, low competition
+  topOpportunities: KeywordResult[];
   seasonalInsights: Array<{
     month: string;
     totalVolume: number;
@@ -97,52 +97,76 @@ interface MarketIntelligenceData {
   lastUpdated: string;
 }
 
-function getClient() {
-  return new GoogleAdsApi({
-    client_id: process.env.GOOGLE_ADS_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET!,
-    developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-  });
-}
-
-function getCustomer() {
-  const client = getClient();
-  return client.Customer({
-    customer_id: process.env.GOOGLE_ADS_CUSTOMER_ID!,
-    refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
-  });
-}
-
 function getCategoryForKeyword(keyword: string): string {
   for (const [category, keywords] of Object.entries(KEYWORD_CATEGORIES)) {
-    if (keywords.includes(keyword)) return category;
+    if (keywords.map(k => k.toLowerCase()).includes(keyword.toLowerCase())) return category;
   }
   return 'Other';
 }
 
-// Map Google Ads competition enum to string
-function mapCompetition(level: number | null | undefined): 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' {
+function mapCompetition(level: string | null | undefined): 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' {
   switch (level) {
-    case 2: return 'LOW';
-    case 3: return 'MEDIUM';
-    case 4: return 'HIGH';
+    case 'LOW': return 'LOW';
+    case 'MEDIUM': return 'MEDIUM';
+    case 'HIGH': return 'HIGH';
     default: return 'UNSPECIFIED';
   }
 }
 
-// Map month enum to number (1-12)
-function mapMonth(monthEnum: number | null | undefined): number {
-  // Google Ads month enum: JANUARY=2, FEBRUARY=3, ..., DECEMBER=13
-  if (!monthEnum || monthEnum < 2) return 1;
-  return monthEnum - 1;
+function mapMonthEnum(monthStr: string | null | undefined): number {
+  const months: Record<string, number> = {
+    JANUARY: 1, FEBRUARY: 2, MARCH: 3, APRIL: 4, MAY: 5, JUNE: 6,
+    JULY: 7, AUGUST: 8, SEPTEMBER: 9, OCTOBER: 10, NOVEMBER: 11, DECEMBER: 12,
+  };
+  return months[monthStr || ''] || 1;
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export async function fetchKeywordData(): Promise<MarketIntelligenceData> {
-  const customer = getCustomer();
+async function getAccessToken(): Promise<string> {
+  const oauth2Client = getOAuth2Client(process.env.GOOGLE_ADS_REFRESH_TOKEN!);
+  const { token } = await oauth2Client.getAccessToken();
+  if (!token) throw new Error('Failed to get access token');
+  return token;
+}
 
-  // Batch keywords into chunks (API may have limits)
+async function generateKeywordIdeas(keywords: string[], accessToken: string): Promise<any> {
+  const customerId = process.env.GOOGLE_ADS_CUSTOMER_ID!;
+  const url = `https://googleads.googleapis.com/v18/customers/${customerId}:generateKeywordIdeas`;
+
+  const body = {
+    keywordSeed: {
+      keywords: keywords,
+    },
+    geoTargetConstants: ['geoTargetConstants/2840'], // United States
+    language: 'languageConstants/1000', // English
+    keywordPlanNetwork: 'GOOGLE_SEARCH',
+    includeAdultKeywords: false,
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('Google Ads API error:', response.status, errorBody);
+    throw new Error(`Google Ads API error (${response.status}): ${errorBody.substring(0, 500)}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchKeywordData(): Promise<MarketIntelligenceData> {
+  const accessToken = await getAccessToken();
+
+  // Batch keywords to avoid oversized requests
   const batchSize = 20;
   const allResults: KeywordResult[] = [];
 
@@ -150,58 +174,44 @@ export async function fetchKeywordData(): Promise<MarketIntelligenceData> {
     const batch = ALL_KEYWORDS.slice(i, i + batchSize);
 
     try {
-      const response = await customer.keywordPlanIdeas.generateKeywordIdeas({
-        customer_id: process.env.GOOGLE_ADS_CUSTOMER_ID!,
-        keyword_seed: {
-          keywords: batch,
-        },
-        // US market
-        geo_target_constants: ['geoTargetConstants/2840'], // United States
-        language: 'languageConstants/1000', // English
-        keyword_plan_network: 2, // GOOGLE_SEARCH
-        include_adult_keywords: false,
-      });
+      const response = await generateKeywordIdeas(batch, accessToken);
+      const results = response?.results || [];
 
-      // Process results
-      const results = (response as any)?.results || response || [];
-      
-      if (Array.isArray(results)) {
-        for (const idea of results) {
-          const text = idea?.text || idea?.keyword_idea_metrics?.keyword || '';
-          const metrics = idea?.keyword_idea_metrics || idea;
+      for (const idea of results) {
+        const text = idea?.text || '';
+        const metrics = idea?.keywordIdeaMetrics || {};
 
-          if (!text) continue;
+        if (!text) continue;
 
-          const monthlyVolumes: KeywordResult['monthlySearchVolumes'] = [];
-          const monthlySearchVolumesRaw = metrics?.monthly_search_volumes || [];
+        const monthlyVolumes: KeywordResult['monthlySearchVolumes'] = [];
+        const monthlySearchVolumesRaw = metrics?.monthlySearchVolumes || [];
 
-          for (const mv of monthlySearchVolumesRaw) {
-            monthlyVolumes.push({
-              year: mv?.year || 0,
-              month: mapMonth(mv?.month),
-              monthlySearches: Number(mv?.monthly_searches || 0),
-            });
-          }
-
-          allResults.push({
-            keyword: text,
-            category: getCategoryForKeyword(text),
-            avgMonthlySearches: Number(metrics?.avg_monthly_searches || 0),
-            competition: mapCompetition(metrics?.competition),
-            competitionIndex: Number(metrics?.competition_index || 0),
-            lowTopOfPageBidMicros: Number(metrics?.low_top_of_page_bid_micros || 0),
-            highTopOfPageBidMicros: Number(metrics?.high_top_of_page_bid_micros || 0),
-            monthlySearchVolumes: monthlyVolumes,
+        for (const mv of monthlySearchVolumesRaw) {
+          monthlyVolumes.push({
+            year: mv?.year || 0,
+            month: mapMonthEnum(mv?.month),
+            monthlySearches: Number(mv?.monthlySearches || 0),
           });
         }
+
+        allResults.push({
+          keyword: text,
+          category: getCategoryForKeyword(text),
+          avgMonthlySearches: Number(metrics?.avgMonthlySearches || 0),
+          competition: mapCompetition(metrics?.competition),
+          competitionIndex: Number(metrics?.competitionIndex || 0),
+          lowTopOfPageBidMicros: Number(metrics?.lowTopOfPageBidMicros || 0),
+          highTopOfPageBidMicros: Number(metrics?.highTopOfPageBidMicros || 0),
+          monthlySearchVolumes: monthlyVolumes,
+        });
       }
     } catch (err: any) {
       console.error(`Error fetching keyword batch starting at ${i}:`, err?.message || err);
-      // Continue with next batch rather than failing entirely
+      // Continue with next batch
     }
   }
 
-  // Deduplicate by keyword (API may return same keyword from different seeds)
+  // Deduplicate by keyword
   const seen = new Set<string>();
   const dedupedResults: KeywordResult[] = [];
   for (const r of allResults) {
@@ -214,7 +224,7 @@ export async function fetchKeywordData(): Promise<MarketIntelligenceData> {
 
   // Build category summaries
   const categories: MarketIntelligenceData['categories'] = {};
-  for (const [catName] of Object.entries(KEYWORD_CATEGORIES)) {
+  for (const catName of Object.keys(KEYWORD_CATEGORIES)) {
     const catKeywords = dedupedResults.filter(r => r.category === catName);
     if (catKeywords.length === 0) continue;
 
@@ -242,14 +252,13 @@ export async function fetchKeywordData(): Promise<MarketIntelligenceData> {
   const topOpportunities = [...dedupedResults]
     .filter(k => k.avgMonthlySearches > 0)
     .sort((a, b) => {
-      // Score: high volume * (100 - competition) = opportunity
       const scoreA = a.avgMonthlySearches * (100 - a.competitionIndex);
       const scoreB = b.avgMonthlySearches * (100 - b.competitionIndex);
       return scoreB - scoreA;
     })
     .slice(0, 15);
 
-  // Seasonal insights - aggregate monthly volumes across all keywords
+  // Seasonal insights
   const monthlyTotals: Record<string, number> = {};
   for (const r of dedupedResults) {
     for (const mv of r.monthlySearchVolumes) {
