@@ -1,100 +1,80 @@
 import { NextResponse } from 'next/server';
+import { fetchKeywordData } from '@/lib/google-ads-keywords';
 
-export async function GET() {
+// Cache the data for 24 hours to avoid hitting API limits
+let cachedData: any = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export async function GET(request: Request) {
   try {
-    // Check if we have a Google Ads refresh token
-    const hasRefreshToken = !!process.env.GOOGLE_ADS_REFRESH_TOKEN;
+    const url = new URL(request.url);
+    const forceRefresh = url.searchParams.get('refresh') === 'true';
 
-    if (!hasRefreshToken) {
+    // Check if we have required env vars
+    const hasConfig = !!(
+      process.env.GOOGLE_ADS_REFRESH_TOKEN &&
+      process.env.GOOGLE_ADS_CLIENT_ID &&
+      process.env.GOOGLE_ADS_CLIENT_SECRET &&
+      process.env.GOOGLE_ADS_DEVELOPER_TOKEN &&
+      process.env.GOOGLE_ADS_CUSTOMER_ID
+    );
+
+    if (!hasConfig) {
       return NextResponse.json({
         error: 'Not connected',
-        message: 'Google Ads API not connected. Click "Connect Google Ads" to authorize.',
-        connected: false
+        message: 'Google Ads API not configured. Missing required environment variables.',
+        connected: false,
       }, { status: 401 });
     }
 
-    // TODO: Implement actual Google Ads Keyword Planner API calls
-    // For now, return mock data so the UI works while we build the integration
+    // Return cached data if fresh enough
+    if (cachedData && !forceRefresh && (Date.now() - cacheTimestamp) < CACHE_DURATION_MS) {
+      return NextResponse.json({
+        ...cachedData,
+        connected: true,
+        dataSource: 'google-ads',
+        cached: true,
+        cacheAge: Math.round((Date.now() - cacheTimestamp) / 1000 / 60), // minutes
+      });
+    }
 
-    const mockMarketData = [
-      {
-        metro: "Salt Lake City",
-        state: "UT",
-        monthly_searches: 8200,
-        pontis_customers: 2,
-        crm_companies: 15,
-        opportunity_score: 72,
-        trend: "up" as const,
-        trend_pct: 8,
-        top_keywords: ["monument companies", "headstone engraving", "grave markers"]
-      },
-      {
-        metro: "Provo-Orem",
-        state: "UT",
-        monthly_searches: 3400,
-        pontis_customers: 1,
-        crm_companies: 8,
-        opportunity_score: 65,
-        trend: "flat" as const,
-        trend_pct: 2,
-        top_keywords: ["cemetery monuments", "memorial stones"]
-      },
-      {
-        metro: "Phoenix",
-        state: "AZ",
-        monthly_searches: 12500,
-        pontis_customers: 0,
-        crm_companies: 28,
-        opportunity_score: 89,
-        trend: "up" as const,
-        trend_pct: 12,
-        top_keywords: ["headstones near me", "memorial markers"]
-      },
-      {
-        metro: "Las Vegas",
-        state: "NV",
-        monthly_searches: 6800,
-        pontis_customers: 0,
-        crm_companies: 12,
-        opportunity_score: 78,
-        trend: "up" as const,
-        trend_pct: 6,
-        top_keywords: ["grave markers", "monument companies"]
-      },
-      {
-        metro: "Denver",
-        state: "CO",
-        monthly_searches: 9100,
-        pontis_customers: 0,
-        crm_companies: 19,
-        opportunity_score: 82,
-        trend: "up" as const,
-        trend_pct: 10,
-        top_keywords: ["headstones denver", "cemetery monuments"]
-      }
-    ];
+    // Fetch fresh data from Google Ads API
+    const data = await fetchKeywordData();
 
-    const mockKeywordData = [
-      { region: "Southwest", keyword: "grave markers", volume: 18400, trend: "up" as const, trend_pct: 7 },
-      { region: "Mountain West", keyword: "monument companies", volume: 12200, trend: "up" as const, trend_pct: 5 },
-      { region: "Pacific", keyword: "headstones near me", volume: 22100, trend: "up" as const, trend_pct: 9 },
-      { region: "South", keyword: "cemetery monuments", volume: 15600, trend: "flat" as const, trend_pct: 1 },
-      { region: "Midwest", keyword: "memorial stones", volume: 11800, trend: "down" as const, trend_pct: 3 }
-    ];
+    // Cache it
+    cachedData = data;
+    cacheTimestamp = Date.now();
 
     return NextResponse.json({
+      ...data,
       connected: true,
-      markets: mockMarketData,
-      keywords: mockKeywordData,
-      lastUpdated: new Date().toISOString(),
-      dataSource: 'mock' // Will change to 'google-ads' when real API is integrated
+      dataSource: 'google-ads',
+      cached: false,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching market intelligence:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch market data' },
-      { status: 500 }
-    );
+    
+    // If we have cached data, return it even if stale
+    if (cachedData) {
+      return NextResponse.json({
+        ...cachedData,
+        connected: true,
+        dataSource: 'google-ads',
+        cached: true,
+        stale: true,
+        cacheAge: Math.round((Date.now() - cacheTimestamp) / 1000 / 60),
+        warning: 'Showing cached data due to API error',
+      });
+    }
+
+    return NextResponse.json({
+      error: 'API Error',
+      message: error?.message || 'Failed to fetch keyword data from Google Ads',
+      details: error?.errors?.[0]?.message || error?.details || null,
+      connected: true,
+      dataSource: 'error',
+    }, { status: 500 });
   }
 }
