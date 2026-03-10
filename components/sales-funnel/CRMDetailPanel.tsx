@@ -492,7 +492,6 @@ export default function CRMDetailPanel({ partner: initialPartner, onClose, onUpd
         const data = await res.json();
         if (data.partner) {
           setPartner(data.partner);
-          onUpdated(data.partner);
         }
         setInteractions(data.interactions || []);
         setContacts(data.contacts || []);
@@ -501,11 +500,17 @@ export default function CRMDetailPanel({ partner: initialPartner, onClose, onUpd
     } finally {
       setLoading(false);
     }
-  }, [partner.id, onUpdated]);
+  }, [partner.id]);
 
+  // Only fetch on mount or when partner ID changes
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
+
+  // Notify parent of updates without causing re-render loops
+  const notifyParent = useCallback((p: Partner) => {
+    onUpdated(p);
+  }, [onUpdated]);
 
   async function updateField(field: string, value: string) {
     const res = await fetch(`/api/partners/${partner.id}`, {
@@ -517,7 +522,7 @@ export default function CRMDetailPanel({ partner: initialPartner, onClose, onUpd
       const data = await res.json();
       if (data.partner) {
         setPartner(data.partner);
-        onUpdated(data.partner);
+        notifyParent(data.partner);
       }
     }
   }
@@ -583,7 +588,10 @@ export default function CRMDetailPanel({ partner: initialPartner, onClose, onUpd
   ];
 
   return (
-    <div className="fixed inset-y-0 right-0 w-[520px] bg-[#0f0f0f] border-l border-[#2a2a2a] z-50 flex flex-col shadow-2xl">
+    <>
+    {/* Backdrop overlay */}
+    <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+    <div className="fixed inset-y-0 right-0 w-[520px] max-w-[90vw] bg-[#0f0f0f] border-l border-[#2a2a2a] z-[60] flex flex-col shadow-2xl">
       {/* Header */}
       <div className="p-4 border-b border-[#2a2a2a] flex-shrink-0">
         <div className="flex items-start justify-between mb-3">
@@ -967,5 +975,6 @@ export default function CRMDetailPanel({ partner: initialPartner, onClose, onUpd
         )}
       </div>
     </div>
+    </>
   );
 }
