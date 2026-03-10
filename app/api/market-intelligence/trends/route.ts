@@ -18,16 +18,20 @@ async function delay(ms: number) {
 }
 
 async function fetchTrends() {
-  const results: any = {
-    interestOverTime: {} as Record<string, any[]>,
-    interestByRegion: [] as any[],
-    risingQueries: [] as any[],
-    topQueries: [] as any[],
-    fetchedAt: new Date().toISOString(),
-  };
+  const categories: Record<string, any> = {};
+  const allSeasonalPoints: Record<string, { total: number; count: number }> = {};
+  const allRising: any[] = [];
+  const allTop: any[] = [];
+  let totalKeywords = 0;
 
   // Fetch interest over time for each group
   for (const [group, keywords] of Object.entries(KEYWORD_GROUPS)) {
+    totalKeywords += keywords.length;
+    categories[group] = {
+      interestOverTime: {} as Record<string, any[]>,
+      interestByRegion: [] as any[],
+    };
+
     try {
       const timeData = await googleTrends.interestOverTime({
         keyword: keywords.slice(0, 5),
@@ -37,22 +41,34 @@ async function fetchTrends() {
 
       const parsed = JSON.parse(timeData);
       if (parsed?.default?.timelineData) {
-        results.interestOverTime[group] = parsed.default.timelineData.map((point: any) => ({
-          date: point.formattedTime,
-          timestamp: parseInt(point.time) * 1000,
-          values: point.value,
-          keywords: keywords.slice(0, 5),
-        }));
+        // Map each keyword's time series
+        keywords.forEach((kw: string, kwIdx: number) => {
+          categories[group].interestOverTime[kw] = parsed.default.timelineData.map((point: any) => {
+            const val = point.value[kwIdx] || 0;
+            // Aggregate for seasonal trends
+            const dateKey = point.formattedTime;
+            if (!allSeasonalPoints[dateKey]) {
+              allSeasonalPoints[dateKey] = { total: 0, count: 0 };
+            }
+            allSeasonalPoints[dateKey].total += val;
+            allSeasonalPoints[dateKey].count += 1;
+
+            return {
+              date: point.formattedTime,
+              value: val,
+              timestamp: parseInt(point.time) * 1000,
+            };
+          });
+        });
       }
 
       await delay(2000);
     } catch (err: any) {
       console.error(`Trends error for ${group}:`, err?.message);
-      results.interestOverTime[group] = [];
     }
   }
 
-  // Fetch geographic interest for "headstone"
+  // Fetch geographic interest for "headstone" and distribute to categories
   try {
     const geoData = await googleTrends.interestByRegion({
       keyword: ['headstone'],
@@ -63,22 +79,27 @@ async function fetchTrends() {
 
     const parsed = JSON.parse(geoData);
     if (parsed?.default?.geoMapData) {
-      results.interestByRegion = parsed.default.geoMapData
+      const regionData = parsed.default.geoMapData
         .map((region: any) => ({
           state: region.geoName,
           geoCode: region.geoCode,
-          interest: region.value?.[0] || 0,
+          value: region.value?.[0] || 0,
+          avgInterest: region.value?.[0] || 0,
         }))
-        .sort((a: any, b: any) => b.interest - a.interest);
+        .sort((a: any, b: any) => b.value - a.value);
+
+      // Add to Monument Services category (most relevant)
+      categories['Monument Services'].interestByRegion = regionData;
+      // Also add to Memorial Tech for broader view
+      categories['Memorial Tech'].interestByRegion = regionData;
     }
 
     await delay(2000);
   } catch (err: any) {
     console.error('Geo trends error:', err?.message);
-    results.interestByRegion = [];
   }
 
-  // Fetch related queries for key terms
+  // Fetch related queries
   for (const keyword of ['headstone', 'digital memorial', 'QR memorial']) {
     try {
       const relatedData = await googleTrends.relatedQueries({
@@ -92,20 +113,20 @@ async function fetchTrends() {
         const rising = parsed.default.rankedList?.[1]?.rankedKeyword || [];
         const top = parsed.default.rankedList?.[0]?.rankedKeyword || [];
 
-        results.risingQueries.push(
+        allRising.push(
           ...rising.slice(0, 5).map((q: any) => ({
             query: q.query,
-            value: q.formattedValue,
-            link: q.link,
+            value: q.value,
+            formattedValue: q.formattedValue || String(q.value),
             sourceKeyword: keyword,
           }))
         );
 
-        results.topQueries.push(
+        allTop.push(
           ...top.slice(0, 5).map((q: any) => ({
             query: q.query,
             value: q.value,
-            link: q.link,
+            formattedValue: q.formattedValue || String(q.value),
             sourceKeyword: keyword,
           }))
         );
@@ -117,15 +138,37 @@ async function fetchTrends() {
     }
   }
 
-  // Deduplicate rising queries
+  // Deduplicate
   const seenRising = new Set<string>();
-  results.risingQueries = results.risingQueries.filter((q: any) => {
+  const risingQueries = allRising.filter((q: any) => {
     if (seenRising.has(q.query)) return false;
     seenRising.add(q.query);
     return true;
   });
 
-  return results;
+  const seenTop = new Set<string>();
+  const topQueries = allTop.filter((q: any) => {
+    if (seenTop.has(q.query)) return false;
+    seenTop.add(q.query);
+    return true;
+  });
+
+  // Build seasonal trends from aggregated data
+  const seasonalTrends = Object.entries(allSeasonalPoints)
+    .map(([date, agg]) => ({
+      date,
+      averageInterest: Math.round(agg.total / agg.count),
+    }));
+
+  return {
+    dataSource: 'google-trends',
+    lastUpdated: new Date().toISOString(),
+    categories,
+    seasonalTrends,
+    risingQueries,
+    topQueries,
+    keywordCount: totalKeywords,
+  };
 }
 
 export async function GET(request: Request) {
@@ -133,11 +176,9 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const forceRefresh = url.searchParams.get('refresh') === 'true';
 
-    // Return cached data if fresh
     if (cachedData && !forceRefresh && (Date.now() - cacheTimestamp) < CACHE_DURATION_MS) {
       return NextResponse.json({
         ...cachedData,
-        dataSource: 'google-trends',
         cached: true,
         cacheAge: Math.round((Date.now() - cacheTimestamp) / 1000 / 60),
       });
@@ -149,7 +190,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       ...data,
-      dataSource: 'google-trends',
       cached: false,
     });
   } catch (error: any) {
@@ -158,7 +198,6 @@ export async function GET(request: Request) {
     if (cachedData) {
       return NextResponse.json({
         ...cachedData,
-        dataSource: 'google-trends',
         cached: true,
         stale: true,
         warning: 'Showing cached data due to API error',
