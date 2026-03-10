@@ -5,6 +5,7 @@ import {
   RefreshCw, X, ChevronRight, Phone, Mail, Globe, MapPin, Calendar,
   AlertCircle, Clock, TrendingUp, Building2, Filter, Search, ChevronLeft,
 } from "lucide-react";
+import CRMDetailPanel from "./CRMDetailPanel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -532,9 +533,9 @@ export default function SalesFunnelClient() {
         </div>
       )}
 
-      {/* Detail Panel */}
+      {/* CRM Detail Panel */}
       {selectedPartner && (
-        <DetailPanel
+        <CRMDetailPanel
           partner={selectedPartner}
           onClose={() => setSelectedPartner(null)}
           onUpdated={(updated) => {
