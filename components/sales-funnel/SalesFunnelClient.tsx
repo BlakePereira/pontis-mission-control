@@ -31,7 +31,6 @@ interface Partner {
   notes: string | null;
   is_tracked: boolean;
   lead_source?: string | null;
-  [key: string]: unknown;
 }
 
 interface Stats {
@@ -544,8 +543,8 @@ export default function SalesFunnelClient() {
         <CRMDetailPanel
           partner={selectedPartner}
           onClose={() => setSelectedPartner(null)}
-          onUpdated={(updated) => {
-            setSelectedPartner(updated);
+          onUpdated={(updated: any) => {
+            setSelectedPartner(updated as Partner);
             fetchData();
           }}
         />
