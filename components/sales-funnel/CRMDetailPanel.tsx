@@ -215,6 +215,7 @@ function LogActivityForm({ partnerId, contacts, onLogged, onCancel, prefillType 
 }) {
   const [type, setType] = useState(prefillType || "call");
   const [summary, setSummary] = useState("");
+  const [notes, setNotes] = useState("");
   const [outcome, setOutcome] = useState("");
   const [contactId, setContactId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -229,7 +230,8 @@ function LogActivityForm({ partnerId, contacts, onLogged, onCancel, prefillType 
         body: JSON.stringify({
           type,
           summary: summary.trim(),
-          outcome: outcome.trim() || null,
+          outcome: outcome || null,
+          raw_note: notes.trim() || null,
           contact_id: contactId || null,
           direction: type === "email" ? "outbound" : null,
           interaction_date: new Date().toISOString(),
@@ -279,12 +281,23 @@ function LogActivityForm({ partnerId, contacts, onLogged, onCancel, prefillType 
       />
 
       <textarea
-        value={outcome}
-        onChange={(e) => setOutcome(e.target.value)}
-        placeholder="Outcome / notes (optional)"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Notes / details (optional)"
         rows={2}
         className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#10b981] placeholder-[#555] resize-none"
       />
+
+      <select
+        value={outcome}
+        onChange={(e) => setOutcome(e.target.value)}
+        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#10b981]"
+      >
+        <option value="">Outcome (optional)</option>
+        <option value="positive">✅ Positive</option>
+        <option value="neutral">➖ Neutral</option>
+        <option value="negative">❌ Negative</option>
+      </select>
 
       {contacts.length > 0 && (
         <select
@@ -740,9 +753,14 @@ export default function CRMDetailPanel({ partner: initialPartner, onClose, onUpd
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-white">{ix.summary}</p>
-                            {ix.outcome && <p className="text-xs text-[#888] mt-0.5">{ix.outcome}</p>}
+                            {ix.raw_note && <p className="text-xs text-[#aaa] mt-0.5 whitespace-pre-wrap">{ix.raw_note}</p>}
                             <div className="flex items-center gap-2 mt-1 text-[10px] text-[#555]">
                               <span>{formatDateTime(ix.interaction_date)}</span>
+                              {ix.outcome && (
+                                <span className={ix.outcome === "positive" ? "text-green-400" : ix.outcome === "negative" ? "text-red-400" : "text-[#888]"}>
+                                  {ix.outcome === "positive" ? "✅" : ix.outcome === "negative" ? "❌" : "➖"} {ix.outcome}
+                                </span>
+                              )}
                               {ix.logged_by && <span>by {ix.logged_by}</span>}
                             </div>
                           </div>
