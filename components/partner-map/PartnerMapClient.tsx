@@ -212,7 +212,10 @@ export default function PartnerMapClient() {
   );
 
   const flowerPartners = useMemo(
-    () => partners.filter((p) => p.partner_type === "florist"),
+    () => partners.filter((p) => 
+      p.partner_type === "florist" || 
+      p.partner_type === "fulfillment_partner" // Legacy type, treat as florist
+    ),
     [partners]
   );
 
