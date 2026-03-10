@@ -15,23 +15,23 @@ interface Partner {
   name: string;
   city: string | null;
   state: string | null;
-  zip: string | null;
+  zip?: string | null;
   territory: string | null;
   website: string | null;
   phone: string | null;
-  email: string | null;
-  address: string | null;
+  email?: string | null;
+  address?: string | null;
   pipeline_status: string;
   health_score: number;
   last_contact_at: string | null;
   next_action: string | null;
   next_action_due: string | null;
-  next_action_assignee: string | null;
+  next_action_assignee?: string | null;
   total_medallions_ordered: number;
   mrr: number | string;
   notes: string | null;
   is_tracked: boolean;
-  lead_source: string | null;
+  lead_source?: string | null;
 }
 
 interface Interaction {
