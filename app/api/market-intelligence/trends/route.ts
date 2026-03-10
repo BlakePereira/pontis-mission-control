@@ -307,7 +307,7 @@ export async function GET(request: Request) {
       const allRising: any[] = [];
       const allTop: any[] = [];
       
-      for (const categoryData of Object.values(categoryResults)) {
+      for (const categoryData of Object.values(categoryResults) as any[]) {
         // Aggregate seasonal trends
         if (Array.isArray(categoryData.interestOverTime)) {
           categoryData.interestOverTime.forEach((point: any) => {
