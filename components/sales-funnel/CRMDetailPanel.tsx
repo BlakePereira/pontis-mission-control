@@ -153,7 +153,7 @@ const urgencyStyles: Record<string, { bg: string; text: string; label: string }>
 // ─── Editable Field ─────────────────────────────────────────────────────────
 
 function EditableField({ value, onSave, label, type = "text", placeholder }: {
-  value: string | null;
+  value: string | null | undefined;
   onSave: (val: string) => void;
   label: string;
   type?: string;
