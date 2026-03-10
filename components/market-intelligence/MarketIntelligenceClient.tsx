@@ -15,7 +15,6 @@ import {
   Tooltip, ResponsiveContainer, Cell, Legend,
 } from "recharts";
 import GoogleTrendsSection from "./GoogleTrendsSection";
-import GoogleTrendsSection from "./GoogleTrendsSection";
 
 interface KeywordResult {
   keyword: string;
