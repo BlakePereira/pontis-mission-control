@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
 import googleTrends from 'google-trends-api';
 
-// Cache trends data for 24 hours
+// Cache trends data for 12 hours
 let cachedData: any = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
+const CACHE_DURATION_MS = 12 * 60 * 60 * 1000;
 
 const KEYWORD_GROUPS: Record<string, string[]> = {
-  'Memorial Tech': ['QR code headstone', 'digital memorial', 'QR memorial', 'smart headstone', 'memorial QR code'],
-  'Monument Services': ['headstone near me', 'grave markers', 'cemetery monuments', 'memorial stones'],
+  'Memorial Tech': ['QR code headstone', 'digital memorial', 'QR memorial'],
+  'Monument Services': ['headstone near me', 'grave markers', 'cemetery monuments'],
   'Memorial Products': ['memorial medallion', 'headstone accessories', 'grave decoration'],
   'Competitor Terms': ['memorygram', 'turning hearts medallion'],
 };
+
+// Single keywords to fetch individual trends for (more reliable than batches)
+const TREND_KEYWORDS = ['headstone', 'digital memorial', 'grave markers', 'memorial QR code'];
 
 async function delay(ms: number) {
   return new Promise(r => setTimeout(r, ms));
@@ -24,83 +27,92 @@ async function fetchTrends() {
   const allTop: any[] = [];
   let totalKeywords = 0;
 
-  // Fetch interest over time for each group
+  // Initialize categories
   for (const [group, keywords] of Object.entries(KEYWORD_GROUPS)) {
     totalKeywords += keywords.length;
     categories[group] = {
       interestOverTime: {} as Record<string, any[]>,
       interestByRegion: [] as any[],
     };
+  }
 
+  // Fetch interest over time ONE keyword at a time (avoids Google rate limiting)
+  for (const keyword of TREND_KEYWORDS) {
     try {
       const timeData = await googleTrends.interestOverTime({
-        keyword: keywords.slice(0, 5),
+        keyword: [keyword],
         startTime: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
         geo: 'US',
       });
 
       const parsed = JSON.parse(timeData);
       if (parsed?.default?.timelineData) {
-        // Map each keyword's time series
-        keywords.forEach((kw: string, kwIdx: number) => {
-          categories[group].interestOverTime[kw] = parsed.default.timelineData.map((point: any) => {
-            const val = point.value[kwIdx] || 0;
-            // Aggregate for seasonal trends
-            const dateKey = point.formattedTime;
-            if (!allSeasonalPoints[dateKey]) {
-              allSeasonalPoints[dateKey] = { total: 0, count: 0 };
-            }
-            allSeasonalPoints[dateKey].total += val;
-            allSeasonalPoints[dateKey].count += 1;
+        // Find which category this keyword belongs to
+        const group = Object.entries(KEYWORD_GROUPS).find(([, kws]) =>
+          kws.some(k => k.toLowerCase() === keyword.toLowerCase())
+        )?.[0] || 'Memorial Tech';
 
-            return {
-              date: point.formattedTime,
-              value: val,
-              timestamp: parseInt(point.time) * 1000,
-            };
-          });
+        categories[group].interestOverTime[keyword] = parsed.default.timelineData.map((point: any) => {
+          const val = point.value[0] || 0;
+          const dateKey = point.formattedTime;
+          if (!allSeasonalPoints[dateKey]) {
+            allSeasonalPoints[dateKey] = { total: 0, count: 0 };
+          }
+          allSeasonalPoints[dateKey].total += val;
+          allSeasonalPoints[dateKey].count += 1;
+
+          return {
+            date: point.formattedTime,
+            value: val,
+            timestamp: parseInt(point.time) * 1000,
+          };
         });
       }
 
-      await delay(2000);
+      await delay(3000); // 3 seconds between requests
     } catch (err: any) {
-      console.error(`Trends error for ${group}:`, err?.message);
+      console.error(`Trends error for ${keyword}:`, err?.message);
     }
   }
 
-  // Fetch geographic interest for "headstone" and distribute to categories
-  try {
-    const geoData = await googleTrends.interestByRegion({
-      keyword: ['headstone'],
-      startTime: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-      geo: 'US',
-      resolution: 'REGION',
-    });
+  // Fetch geographic interest for multiple terms
+  for (const keyword of ['headstone', 'memorial']) {
+    try {
+      const geoData = await googleTrends.interestByRegion({
+        keyword: [keyword],
+        startTime: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+        geo: 'US',
+        resolution: 'REGION',
+      });
 
-    const parsed = JSON.parse(geoData);
-    if (parsed?.default?.geoMapData) {
-      const regionData = parsed.default.geoMapData
-        .map((region: any) => ({
-          state: region.geoName,
-          geoCode: region.geoCode,
-          value: region.value?.[0] || 0,
-          avgInterest: region.value?.[0] || 0,
-        }))
-        .sort((a: any, b: any) => b.value - a.value);
+      const parsed = JSON.parse(geoData);
+      if (parsed?.default?.geoMapData) {
+        const regionData = parsed.default.geoMapData
+          .map((region: any) => ({
+            state: region.geoName,
+            geoCode: region.geoCode,
+            value: region.value?.[0] || 0,
+            avgInterest: region.value?.[0] || 0,
+          }))
+          .sort((a: any, b: any) => b.value - a.value);
 
-      // Add to Monument Services category (most relevant)
-      categories['Monument Services'].interestByRegion = regionData;
-      // Also add to Memorial Tech for broader view
-      categories['Memorial Tech'].interestByRegion = regionData;
+        // Add to relevant categories
+        if (keyword === 'headstone') {
+          categories['Monument Services'].interestByRegion = regionData;
+        }
+        if (keyword === 'memorial') {
+          categories['Memorial Tech'].interestByRegion = regionData;
+        }
+      }
+
+      await delay(3000);
+    } catch (err: any) {
+      console.error('Geo trends error:', err?.message);
     }
-
-    await delay(2000);
-  } catch (err: any) {
-    console.error('Geo trends error:', err?.message);
   }
 
   // Fetch related queries
-  for (const keyword of ['headstone', 'digital memorial', 'QR memorial']) {
+  for (const keyword of ['headstone', 'digital memorial']) {
     try {
       const relatedData = await googleTrends.relatedQueries({
         keyword: [keyword],
@@ -132,7 +144,7 @@ async function fetchTrends() {
         );
       }
 
-      await delay(2000);
+      await delay(3000);
     } catch (err: any) {
       console.error(`Related queries error for ${keyword}:`, err?.message);
     }
@@ -153,7 +165,7 @@ async function fetchTrends() {
     return true;
   });
 
-  // Build seasonal trends from aggregated data
+  // Build seasonal trends
   const seasonalTrends = Object.entries(allSeasonalPoints)
     .map(([date, agg]) => ({
       date,

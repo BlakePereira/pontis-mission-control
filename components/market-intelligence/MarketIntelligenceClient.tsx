@@ -257,9 +257,28 @@ export default function MarketIntelligenceClient() {
 
   if (!data) return null;
 
+  const hasKeywordData = data.keywords && data.keywords.length > 0;
+
   const highValueKeywords = data.keywords?.filter(
     (k) => k.highTopOfPageBidMicros > 3000000 && k.competition !== "HIGH"
   ) || [];
+
+  // If Google Ads returns no data, show Google Trends as the primary view
+  if (!hasKeywordData) {
+    return (
+      <div className="min-h-screen bg-black text-white p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Market Intelligence</h1>
+            <p className="text-gray-400 mt-1">
+              Real-time search trends and market demand data for the memorial industry
+            </p>
+          </div>
+          <GoogleTrendsSection />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
