@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search");
     const assignee = searchParams.get("assignee");
     const partnerType = searchParams.get("partnerType");
+    const state = searchParams.get("state");
 
     let url = `${SUPABASE_URL}/rest/v1/crm_partners?select=*,crm_contacts(id,name,role,email,phone,preferred_contact_method)&order=created_at.desc&limit=500`;
 
@@ -40,6 +41,9 @@ export async function GET(req: NextRequest) {
     }
     if (partnerType && partnerType !== "all") {
       url += `&partner_type=eq.${encodeURIComponent(partnerType)}`;
+    }
+    if (state && state !== "all") {
+      url += `&state=eq.${encodeURIComponent(state)}`;
     }
     if (search) {
       url += `&name=ilike.${encodeURIComponent(`%${search}%`)}`;

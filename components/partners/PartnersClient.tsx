@@ -1486,6 +1486,7 @@ export default function PartnersClient() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [partnerTypeFilter, setPartnerTypeFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -1497,6 +1498,7 @@ export default function PartnersClient() {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (partnerTypeFilter !== "all") params.set("partnerType", partnerTypeFilter);
       if (healthFilter !== "all") params.set("health", healthFilter);
+      if (stateFilter !== "all") params.set("state", stateFilter);
       if (search) params.set("search", search);
 
       const [partnersRes, statsRes] = await Promise.all([
@@ -1520,7 +1522,7 @@ export default function PartnersClient() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, partnerTypeFilter, healthFilter, search]);
+  }, [statusFilter, partnerTypeFilter, healthFilter, stateFilter, search]);
 
   useEffect(() => {
     setLoading(true);
@@ -1636,6 +1638,68 @@ export default function PartnersClient() {
             <FilterPill key={key} label={label} active={healthFilter === key} onClick={() => setHealthFilter(key)} />
           ))}
         </div>
+
+        {/* Spacer */}
+        <div className="w-px h-5 bg-[#2a2a2a] hidden sm:block" />
+
+        {/* State filter dropdown */}
+        <select
+          value={stateFilter}
+          onChange={(e) => setStateFilter(e.target.value)}
+          className="px-2.5 py-1 text-xs rounded-lg bg-[#111] border border-[#2a2a2a] text-[#666] hover:text-white hover:border-[#444] focus:outline-none focus:border-[#10b981]/30"
+        >
+          <option value="all">All States</option>
+          <option value="UT">Utah</option>
+          <option value="CA">California</option>
+          <option value="TX">Texas</option>
+          <option value="PA">Pennsylvania</option>
+          <option value="FL">Florida</option>
+          <option value="NY">New York</option>
+          <option value="IL">Illinois</option>
+          <option value="OH">Ohio</option>
+          <option value="GA">Georgia</option>
+          <option value="NC">North Carolina</option>
+          <option value="MI">Michigan</option>
+          <option value="NJ">New Jersey</option>
+          <option value="VA">Virginia</option>
+          <option value="WA">Washington</option>
+          <option value="AZ">Arizona</option>
+          <option value="MA">Massachusetts</option>
+          <option value="TN">Tennessee</option>
+          <option value="IN">Indiana</option>
+          <option value="MO">Missouri</option>
+          <option value="MD">Maryland</option>
+          <option value="WI">Wisconsin</option>
+          <option value="CO">Colorado</option>
+          <option value="MN">Minnesota</option>
+          <option value="SC">South Carolina</option>
+          <option value="AL">Alabama</option>
+          <option value="LA">Louisiana</option>
+          <option value="KY">Kentucky</option>
+          <option value="OR">Oregon</option>
+          <option value="OK">Oklahoma</option>
+          <option value="CT">Connecticut</option>
+          <option value="IA">Iowa</option>
+          <option value="MS">Mississippi</option>
+          <option value="AR">Arkansas</option>
+          <option value="KS">Kansas</option>
+          <option value="NV">Nevada</option>
+          <option value="NM">New Mexico</option>
+          <option value="NE">Nebraska</option>
+          <option value="WV">West Virginia</option>
+          <option value="ID">Idaho</option>
+          <option value="HI">Hawaii</option>
+          <option value="NH">New Hampshire</option>
+          <option value="ME">Maine</option>
+          <option value="MT">Montana</option>
+          <option value="RI">Rhode Island</option>
+          <option value="DE">Delaware</option>
+          <option value="SD">South Dakota</option>
+          <option value="ND">North Dakota</option>
+          <option value="AK">Alaska</option>
+          <option value="VT">Vermont</option>
+          <option value="WY">Wyoming</option>
+        </select>
 
         {/* Search */}
         <input
