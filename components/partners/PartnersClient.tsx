@@ -646,6 +646,27 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
               <FormInput label="State" value={String(editForm.state || "")} onChange={(v) => setEditForm((f) => ({ ...f, state: v }))} />
               <FormInput label="ZIP" value={String(editForm.zip || "")} onChange={(v) => setEditForm((f) => ({ ...f, zip: v }))} />
             </div>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!partner?.id) return;
+                const res = await fetch(`/api/partners/${partner.id}/geocode`, { method: "POST" });
+                if (res.ok) {
+                  const data = await res.json();
+                  alert(`Geocoded: ${data.partner?.latitude}, ${data.partner?.longitude}`);
+                  // Refresh the partner data
+                  fetch(`/api/partners/${partner.id}`)
+                    .then(r => r.json())
+                    .then(d => onUpdate?.(d.partner));
+                } else {
+                  alert("Failed to geocode address");
+                }
+              }}
+              className="px-3 py-1.5 text-xs bg-[#1a1a1a] text-[#10b981] border border-[#2a2a2a] rounded-lg hover:border-[#10b981]/50 transition-colors flex items-center gap-1.5"
+            >
+              <MapPin size={12} />
+              Re-geocode Address
+            </button>
             <div className="grid grid-cols-2 gap-3">
               <FormInput label="Phone" value={String(editForm.phone || "")} onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))} />
               <FormInput label="Email" value={String(editForm.email || "")} onChange={(v) => setEditForm((f) => ({ ...f, email: v }))} />
