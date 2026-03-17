@@ -1682,7 +1682,8 @@ export default function PartnersClient() {
                 <th className="text-left px-3 py-3">Company</th>
                 <th className="text-left px-3 py-3">Type</th>
                 <th className="text-left px-3 py-3">Status</th>
-                <th className="text-left px-3 py-3">Territory</th>
+                <th className="text-left px-3 py-3">State</th>
+                <th className="text-left px-3 py-3">City</th>
                 <th className="text-left px-3 py-3">Primary Contact</th>
                 <th className="text-left px-3 py-3">Last Contact</th>
                 <th className="text-left px-3 py-3">Next Action</th>
@@ -1729,8 +1730,11 @@ export default function PartnersClient() {
                     </span>
                   </td>
 
-                  {/* Territory */}
-                  <td className="px-3 py-3 text-[#888] text-xs">{p.territory || "—"}</td>
+                  {/* State */}
+                  <td className="px-3 py-3 text-[#888] text-xs">{p.state || "—"}</td>
+
+                  {/* City */}
+                  <td className="px-3 py-3 text-[#888] text-xs">{p.city || "—"}</td>
 
                   {/* Primary Contact */}
                   <td className="px-3 py-3 text-[#888] text-xs max-w-[140px]">
