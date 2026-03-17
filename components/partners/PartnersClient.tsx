@@ -657,7 +657,7 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
                   // Refresh the partner data
                   fetch(`/api/partners/${partner.id}`)
                     .then(r => r.json())
-                    .then(d => onUpdate?.(d.partner));
+                    .then(d => onUpdated?.(d.partner));
                 } else {
                   alert("Failed to geocode address");
                 }
