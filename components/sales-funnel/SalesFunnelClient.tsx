@@ -5,6 +5,7 @@ import {
   RefreshCw, X, ChevronRight, Phone, Mail, Globe, MapPin, Calendar,
   AlertCircle, Clock, TrendingUp, Building2, Filter, Search, ChevronLeft,
 } from "lucide-react";
+import CRMDetailPanel from "./CRMDetailPanel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -13,18 +14,23 @@ interface Partner {
   name: string;
   city: string | null;
   state: string | null;
+  zip?: string | null;
   territory: string | null;
   website: string | null;
   phone: string | null;
+  email?: string | null;
+  address?: string | null;
   pipeline_status: string;
   health_score: number;
   last_contact_at: string | null;
   next_action: string | null;
   next_action_due: string | null;
+  next_action_assignee?: string | null;
   total_medallions_ordered: number;
   mrr: number | string;
   notes: string | null;
   is_tracked: boolean;
+  lead_source?: string | null;
 }
 
 interface Stats {
@@ -532,13 +538,13 @@ export default function SalesFunnelClient() {
         </div>
       )}
 
-      {/* Detail Panel */}
+      {/* CRM Detail Panel */}
       {selectedPartner && (
-        <DetailPanel
+        <CRMDetailPanel
           partner={selectedPartner}
           onClose={() => setSelectedPartner(null)}
-          onUpdated={(updated) => {
-            setSelectedPartner(updated);
+          onUpdated={(updated: any) => {
+            setSelectedPartner(updated as Partner);
             fetchData();
           }}
         />

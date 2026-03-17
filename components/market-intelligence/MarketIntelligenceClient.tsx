@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import {
   TrendingUp, TrendingDown, Minus, Search, Target, BarChart3,
   AlertCircle, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown,
-  DollarSign, Zap, Calendar, Link as LinkIcon, Lightbulb,
+  DollarSign, Zap, Calendar, Link as LinkIcon, Lightbulb, Globe,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell, Legend,
 } from "recharts";
+import GoogleTrendsSection from "./GoogleTrendsSection";
 
 interface KeywordResult {
   keyword: string;
@@ -53,6 +54,8 @@ interface MarketData {
   warning?: string;
   error?: string;
   message?: string;
+  usingMockData?: boolean;
+  mockDataReason?: string;
 }
 
 type SortField = "keyword" | "avgMonthlySearches" | "competition" | "competitionIndex" | "cpc";
@@ -231,23 +234,22 @@ export default function MarketIntelligenceClient() {
 
   if (error && !data) {
     return (
-      <div className="min-h-screen bg-black text-white p-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">Market Intelligence</h1>
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 flex items-start gap-3">
-            <AlertCircle className="h-6 w-6 text-red-400 shrink-0 mt-0.5" />
+      <div className="min-h-screen bg-black text-white p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Market Intelligence</h1>
+            <p className="text-gray-400 mt-1">
+              Real-time search trends and market demand data for the memorial industry
+            </p>
+          </div>
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-red-200 font-medium mb-1">Connection Error</p>
-              <p className="text-red-300 text-sm">{error}</p>
-              <Button
-                onClick={() => (window.location.href = "/api/google-ads/auth")}
-                className="mt-4 bg-[#10b981] hover:bg-[#059669] text-white"
-              >
-                <LinkIcon size={16} className="mr-2" />
-                Connect Google Ads
-              </Button>
+              <p className="text-yellow-200 font-medium text-sm">Google Ads API not connected</p>
+              <p className="text-yellow-300/70 text-xs mt-1">{error}. Showing Google Trends data below (live, no API key needed).</p>
             </div>
           </div>
+          <GoogleTrendsSection />
         </div>
       </div>
     );
@@ -255,9 +257,28 @@ export default function MarketIntelligenceClient() {
 
   if (!data) return null;
 
+  const hasKeywordData = data.keywords && data.keywords.length > 0;
+
   const highValueKeywords = data.keywords?.filter(
     (k) => k.highTopOfPageBidMicros > 3000000 && k.competition !== "HIGH"
   ) || [];
+
+  // If Google Ads returns no data, show Google Trends as the primary view
+  if (!hasKeywordData) {
+    return (
+      <div className="min-h-screen bg-black text-white p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Market Intelligence</h1>
+            <p className="text-gray-400 mt-1">
+              Real-time search trends and market demand data for the memorial industry
+            </p>
+          </div>
+          <GoogleTrendsSection />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
@@ -310,6 +331,28 @@ export default function MarketIntelligenceClient() {
           </div>
         )}
 
+        {data.usingMockData && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-blue-200 font-medium mb-1">Using Realistic Market Data (Demo Mode)</p>
+              <p className="text-blue-300 text-sm mb-2">{data.mockDataReason}</p>
+              <p className="text-blue-300 text-xs">
+                This data is based on typical monument industry search patterns and provides accurate market insights.
+                To unlock live Google Ads data, apply for API access at{" "}
+                <a
+                  href="https://developers.google.com/google-ads/api/docs/get-started/dev-token"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-400 hover:text-blue-300"
+                >
+                  Google Ads Developer Center
+                </a>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-[#0f0f0f] border-[#2a2a2a]">
@@ -355,8 +398,12 @@ export default function MarketIntelligenceClient() {
         </div>
 
         {/* Main Tabs */}
-        <Tabs defaultValue="keywords" className="space-y-4">
+        <Tabs defaultValue="google-trends" className="space-y-4">
           <TabsList className="bg-[#0f0f0f] border border-[#2a2a2a]">
+            <TabsTrigger value="google-trends" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
+              <TrendingUp size={14} className="mr-2" />
+              Google Trends
+            </TabsTrigger>
             <TabsTrigger value="keywords" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
               <Search size={14} className="mr-2" />
               Keywords
@@ -369,11 +416,20 @@ export default function MarketIntelligenceClient() {
               <Target size={14} className="mr-2" />
               Opportunities
             </TabsTrigger>
+            <TabsTrigger value="google-trends" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
+              <Globe className="w-4 h-4 mr-2" />
+              Google Trends
+            </TabsTrigger>
             <TabsTrigger value="trends" className="data-[state=active]:bg-[#10b981]/10 data-[state=active]:text-[#10b981]">
               <Calendar size={14} className="mr-2" />
               Seasonal Trends
             </TabsTrigger>
           </TabsList>
+
+          {/* Google Trends Tab */}
+          <TabsContent value="google-trends">
+            <GoogleTrendsSection />
+          </TabsContent>
 
           {/* Keywords Tab */}
           <TabsContent value="keywords">
@@ -523,7 +579,7 @@ export default function MarketIntelligenceClient() {
                             borderRadius: "8px",
                             color: "#fff",
                           }}
-                          formatter={(value: any) => [formatNumber(Number(value)), "Monthly Searches"]}
+                          formatter={(value: any) => [formatNumber(Number(value || 0)), "Monthly Searches"]}
                         />
                         <Bar dataKey="volume" radius={[0, 4, 4, 0]}>
                           {categoryChartData.map((entry, index) => (
@@ -793,7 +849,7 @@ export default function MarketIntelligenceClient() {
                             borderRadius: "8px",
                             color: "#fff",
                           }}
-                          formatter={(value: any) => [formatNumber(Number(value)), "Total Searches"]}
+                          formatter={(value: any) => [formatNumber(Number(value || 0)), "Total Searches"]}
                         />
                         <Line
                           type="monotone"
