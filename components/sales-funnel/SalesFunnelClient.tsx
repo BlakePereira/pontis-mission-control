@@ -97,6 +97,36 @@ function formatCurrency(n: number): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getNextActionSignal(partner: Partner) {
+  const missingFields = [
+    !partner.next_action ? "next action" : null,
+    !partner.next_action_due ? "due date" : null,
+    !partner.next_action_assignee ? "owner" : null,
+  ].filter(Boolean) as string[];
+
+  const today = startOfDay(new Date());
+  const due = partner.next_action_due ? startOfDay(new Date(partner.next_action_due)) : null;
+  const dueInDays = due ? Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const staleContactDays = partner.last_contact_at
+    ? Math.floor((Date.now() - new Date(partner.last_contact_at).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  return {
+    missingFields,
+    dueInDays,
+    isOverdue: dueInDays !== null && dueInDays < 0,
+    isDueSoon: dueInDays !== null && dueInDays >= 0 && dueInDays <= 3,
+    isStale: staleContactDays !== null && staleContactDays > 14,
+    staleContactDays,
+  };
+}
+
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, color, icon }: {
@@ -125,6 +155,7 @@ function PipelineCard({ partner, onSelect, onMove, onTrack }: {
   const currentStageIndex = PIPELINE_STAGES.findIndex((s) => s.key === partner.pipeline_status);
   const canMoveNext = currentStageIndex < PIPELINE_STAGES.length - 1;
   const canMovePrev = currentStageIndex > 0;
+  const signal = getNextActionSignal(partner);
 
   return (
     <div
@@ -159,6 +190,31 @@ function PipelineCard({ partner, onSelect, onMove, onTrack }: {
       {partner.next_action && (
         <div className="text-xs text-[#888] mb-3 truncate">
           <span className="text-[#10b981]">→</span> {partner.next_action}
+        </div>
+      )}
+
+      {(signal.isOverdue || signal.isDueSoon || signal.missingFields.length > 0 || signal.isStale) && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {signal.isOverdue && (
+            <span className="text-[10px] px-2 py-1 rounded-full bg-red-950/40 text-red-300 border border-red-700/30">
+              Follow-up overdue
+            </span>
+          )}
+          {!signal.isOverdue && signal.isDueSoon && (
+            <span className="text-[10px] px-2 py-1 rounded-full bg-yellow-950/40 text-yellow-200 border border-yellow-700/30">
+              Due soon
+            </span>
+          )}
+          {signal.isStale && (
+            <span className="text-[10px] px-2 py-1 rounded-full bg-orange-950/40 text-orange-200 border border-orange-700/30">
+              {signal.staleContactDays}d since contact
+            </span>
+          )}
+          {signal.missingFields.length > 0 && (
+            <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700">
+              Missing {signal.missingFields.join(", ")}
+            </span>
+          )}
         </div>
       )}
 
@@ -359,7 +415,7 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated }: {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function SalesFunnelClient() {
+export default function SalesFunnelClient({ embedded = false }: { embedded?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [stages, setStages] = useState<Record<string, Partner[]>>({});
   const [stats, setStats] = useState<Stats>({ total: 0, activePipeline: 0, won: 0, lost: 0, conversionRate: "0.0%", pipelineValue: 0 });
@@ -406,6 +462,15 @@ export default function SalesFunnelClient() {
     if (targetIndex < 0 || targetIndex >= PIPELINE_STAGES.length) return;
 
     const newStatus = PIPELINE_STAGES[targetIndex].key;
+    const guardedStatuses = ["demo_scheduled", "demo_done", "negotiating", "active"];
+    const signal = getNextActionSignal(partner);
+
+    if (direction === "next" && guardedStatuses.includes(newStatus) && signal.missingFields.length > 0) {
+      const proceed = window.confirm(
+        `This record is missing ${signal.missingFields.join(", ")}. Move to ${PIPELINE_STAGES[targetIndex].label} anyway?`
+      );
+      if (!proceed) return;
+    }
 
     try {
       const res = await fetch(`/api/partners/${partner.id}`, {
@@ -439,14 +504,14 @@ export default function SalesFunnelClient() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-white">
+    <div className={`${embedded ? "" : "min-h-screen bg-zinc-900"} text-white`}>
       {/* Header */}
-      <div className="border-b border-[#2a2a2a] bg-[#0a0a0a] sticky top-0 z-40">
+      <div className={`border-b border-[#2a2a2a] bg-[#0a0a0a] ${embedded ? "rounded-t-xl" : "sticky top-0 z-40"}`}>
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-white">Sales Funnel</h1>
-              <p className="text-sm text-[#555] mt-0.5">Monument company pipeline visualization</p>
+              <h1 className="text-2xl font-bold text-white">Pipeline</h1>
+              <p className="text-sm text-[#555] mt-0.5">Monument company pipeline with follow-up discipline warnings</p>
             </div>
             <button
               onClick={fetchData}

@@ -165,6 +165,40 @@ function formatMRR(mrr: number | string): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getAccountDisciplineWarnings(partner: Partner): string[] {
+  const warnings: string[] = [];
+  const activeStatuses = ["warm", "demo_scheduled", "demo_done", "negotiating", "active"];
+
+  if (activeStatuses.includes(partner.pipeline_status)) {
+    if (!partner.next_action) warnings.push("missing next action");
+    if (!partner.next_action_assignee) warnings.push("missing owner");
+    if (!partner.next_action_due) warnings.push("missing due date");
+  }
+
+  if (partner.next_action_due) {
+    const due = startOfDay(new Date(partner.next_action_due));
+    const today = startOfDay(new Date());
+    const diff = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) warnings.push("follow-up overdue");
+    else if (diff <= 3) warnings.push("follow-up due soon");
+  }
+
+  if (partner.last_contact_at) {
+    const daysSinceContact = Math.floor((Date.now() - new Date(partner.last_contact_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceContact > 14 && activeStatuses.includes(partner.pipeline_status)) warnings.push(`stale contact (${daysSinceContact}d)`);
+  } else if (activeStatuses.includes(partner.pipeline_status)) {
+    warnings.push("no contact logged");
+  }
+
+  return warnings;
+}
+
 function statusBadgeClass(status: string): string {
   const map: Record<string, string> = {
     prospect:       "bg-zinc-800 text-zinc-400 border-zinc-700",
@@ -440,6 +474,13 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const activeStageGuardrail = editForm.pipeline_status && ['demo_scheduled', 'demo_done', 'negotiating', 'active'].includes(String(editForm.pipeline_status));
+  const missingGuardrailFields = [
+    activeStageGuardrail && !String(editForm.next_action || "").trim() ? "next action" : null,
+    activeStageGuardrail && !String(editForm.next_action_due || "").trim() ? "due date" : null,
+    activeStageGuardrail && !String(editForm.next_action_assignee || "").trim() ? "owner" : null,
+  ].filter(Boolean) as string[];
+
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     try {
@@ -487,6 +528,13 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
   };
 
   const saveEdit = async () => {
+    if (missingGuardrailFields.length > 0) {
+      const proceed = window.confirm(
+        `This account is in an active pipeline stage but is missing ${missingGuardrailFields.join(", ")}. Save anyway?`
+      );
+      if (!proceed) return;
+    }
+
     setSavingEdit(true);
     try {
       const payload = {
@@ -639,6 +687,11 @@ function DetailPanel({ partner: initialPartner, onClose, onUpdated, onDeleted }:
       {editing && (
         <div className="p-5 border-b border-[#2a2a2a] bg-[#111] overflow-y-auto max-h-[50vh] flex-shrink-0">
           <div className="space-y-3">
+            {missingGuardrailFields.length > 0 && (
+              <div className="rounded-xl border border-yellow-700/30 bg-yellow-950/20 px-4 py-3 text-sm text-yellow-100">
+                Active pipeline records should usually have an owner, next action, and due date. Missing: {missingGuardrailFields.join(", ")}.
+              </div>
+            )}
             <FormInput label="Name" value={String(editForm.name || "")} onChange={(v) => setEditForm((f) => ({ ...f, name: v }))} />
             <FormInput label="Address" value={String(editForm.address || "")} onChange={(v) => setEditForm((f) => ({ ...f, address: v }))} />
             <div className="grid grid-cols-3 gap-3">
@@ -1475,7 +1528,7 @@ function AddActionForm({ partnerId, onSaved, onCancel }: {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function PartnersClient() {
+export default function PartnersClient({ embedded = false }: { embedded?: boolean }) {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1553,6 +1606,13 @@ export default function PartnersClient() {
 
   return (
     <div className="relative">
+      {embedded && (
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-white">Accounts</h2>
+          <p className="text-sm text-[#555] mt-1">Tracked partners, contacts, timeline, and account-level follow-up health.</p>
+        </div>
+      )}
+
       {/* Stats Bar */}
       {stats && (
         <div className="grid grid-cols-4 gap-4 mb-6">
@@ -1756,11 +1816,16 @@ export default function PartnersClient() {
             </thead>
             <tbody>
               {partners.filter(p => showAll || p.is_tracked).map((p) => (
+                (() => {
+                  const warnings = getAccountDisciplineWarnings(p);
+                  const overdue = warnings.includes("follow-up overdue");
+                  const dueSoon = !overdue && warnings.includes("follow-up due soon");
+                  return (
                 <tr
                   key={p.id}
                   onClick={() => setSelectedPartner(selectedPartner?.id === p.id ? null : p)}
                   className={`border-b border-[#1e1e1e] hover:bg-[#1a1a1a] cursor-pointer transition-colors ${
-                    selectedPartner?.id === p.id ? "bg-[#1a1a1a]" : ""
+                    selectedPartner?.id === p.id ? "bg-[#1a1a1a]" : overdue ? "bg-red-950/10" : dueSoon ? "bg-yellow-950/10" : ""
                   }`}
                 >
                   {/* Health dot */}
@@ -1818,6 +1883,32 @@ export default function PartnersClient() {
                         {p.next_action_due && (
                           <span className="text-[#555] text-[10px]">{formatDate(p.next_action_due)}</span>
                         )}
+                        {warnings.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {warnings.slice(0, 2).map((warning) => (
+                              <span
+                                key={warning}
+                                className={`text-[9px] px-1.5 py-0.5 rounded-full border ${
+                                  warning.includes("overdue")
+                                    ? "bg-red-950/30 text-red-300 border-red-700/30"
+                                    : warning.includes("due soon")
+                                      ? "bg-yellow-950/30 text-yellow-200 border-yellow-700/30"
+                                      : "bg-zinc-900 text-zinc-300 border-zinc-700"
+                                }`}
+                              >
+                                {warning}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : warnings.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {warnings.slice(0, 2).map((warning) => (
+                          <span key={warning} className="text-[9px] px-1.5 py-0.5 rounded-full border bg-zinc-900 text-zinc-300 border-zinc-700">
+                            {warning}
+                          </span>
+                        ))}
                       </div>
                     ) : "—"}
                   </td>
@@ -1827,6 +1918,8 @@ export default function PartnersClient() {
                     {p.next_action_assignee || "—"}
                   </td>
                 </tr>
+                  );
+                })()
               ))}
             </tbody>
           </table>
