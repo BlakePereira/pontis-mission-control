@@ -1615,7 +1615,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
 
       {/* Stats Bar */}
       {stats && (
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
           <StatCard
             label="Total Partners"
             value={stats.totalPartners}
@@ -1799,19 +1799,19 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
         </div>
       ) : (
         <div className="bg-[#111] border border-[#2a2a2a] rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="border-b border-[#2a2a2a] text-[#555] text-[11px] uppercase tracking-wider">
-                <th className="text-left px-3 py-3 w-5"></th>
-                <th className="text-left px-3 py-3">Company</th>
-                <th className="text-left px-3 py-3">Type</th>
-                <th className="text-left px-3 py-3">Status</th>
-                <th className="text-left px-3 py-3">State</th>
-                <th className="text-left px-3 py-3">City</th>
-                <th className="text-left px-3 py-3">Primary Contact</th>
-                <th className="text-left px-3 py-3">Last Contact</th>
-                <th className="text-left px-3 py-3">Next Action</th>
-                <th className="text-left px-3 py-3">Assignee</th>
+                <th className="text-left px-3 py-3 w-8"></th>
+                <th className="text-left px-3 py-3 w-[18%]">Company</th>
+                <th className="text-left px-3 py-3 w-[11%]">Type</th>
+                <th className="text-left px-3 py-3 w-[11%]">Status</th>
+                <th className="text-left px-3 py-3 w-[7%]">State</th>
+                <th className="text-left px-3 py-3 w-[9%]">City</th>
+                <th className="text-left px-3 py-3 w-[13%]">Primary Contact</th>
+                <th className="text-left px-3 py-3 w-[10%]">Last Contact</th>
+                <th className="text-left px-3 py-3 w-[15%]">Next Action</th>
+                <th className="text-left px-3 py-3 w-[10%]">Assignee</th>
               </tr>
             </thead>
             <tbody>
@@ -1863,10 +1863,10 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
                   <td className="px-3 py-3 text-[#888] text-xs">{p.state || "—"}</td>
 
                   {/* City */}
-                  <td className="px-3 py-3 text-[#888] text-xs">{p.city || "—"}</td>
+                  <td className="px-3 py-3 text-[#888] text-xs truncate">{p.city || "—"}</td>
 
                   {/* Primary Contact */}
-                  <td className="px-3 py-3 text-[#888] text-xs max-w-[140px]">
+                  <td className="px-3 py-3 text-[#888] text-xs">
                     <span className="truncate block">{primaryContact(p)}</span>
                   </td>
 
@@ -1876,7 +1876,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
                   </td>
 
                   {/* Next Action */}
-                  <td className="px-3 py-3 text-xs text-[#888] max-w-[160px]">
+                  <td className="px-3 py-3 text-xs text-[#888]">
                     {p.next_action ? (
                       <div>
                         <span className="truncate block">{p.next_action}</span>
@@ -1914,7 +1914,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
                   </td>
 
                   {/* Assignee */}
-                  <td className="px-3 py-3 text-xs text-[#888]">
+                  <td className="px-3 py-3 text-xs text-[#888] truncate">
                     {p.next_action_assignee || "—"}
                   </td>
                 </tr>

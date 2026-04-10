@@ -16,8 +16,8 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="bg-[#0a0a0a] text-white min-h-screen flex">
         <Sidebar />
-        <div className="flex-1 flex flex-col min-h-screen ml-64">
-          <main className="flex-1 p-6 overflow-auto">
+        <div className="flex-1 min-w-0 flex flex-col min-h-screen ml-64">
+          <main className="flex-1 min-w-0 p-6 overflow-y-auto overflow-x-hidden">
             {children}
           </main>
         </div>

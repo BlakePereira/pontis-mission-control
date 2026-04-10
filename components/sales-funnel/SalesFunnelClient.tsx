@@ -267,7 +267,7 @@ function PipelineColumn({ stage, partners, onSelectPartner, onMovePartner, onTra
   onTrackPartner: (p: Partner, tracked: boolean) => void;
 }) {
   return (
-    <div className="flex-shrink-0 w-72 flex flex-col">
+    <div className="min-w-0 flex flex-col">
       <div
         className="rounded-lg p-3 mb-3 border-2"
         style={{ borderColor: stage.color, backgroundColor: `${stage.color}15` }}
@@ -524,7 +524,7 @@ export default function SalesFunnelClient({ embedded = false }: { embedded?: boo
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-6 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-3 mb-4">
             <StatCard label="Total Prospects" value={stats.total} icon={<Building2 size={12} />} />
             <StatCard label="Active Pipeline" value={stats.activePipeline} color="#eab308" icon={<TrendingUp size={12} />} />
             <StatCard label="Won (Active)" value={stats.won} color="#10b981" icon={<TrendingUp size={12} />} />
@@ -587,8 +587,8 @@ export default function SalesFunnelClient({ embedded = false }: { embedded?: boo
           <p className="text-[#555] text-sm">Loading pipeline...</p>
         </div>
       ) : (
-        <div className="p-6 overflow-x-auto">
-          <div className="flex gap-4 min-w-max">
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 items-start">
             {PIPELINE_STAGES.map((stage) => (
               <PipelineColumn
                 key={stage.key}
