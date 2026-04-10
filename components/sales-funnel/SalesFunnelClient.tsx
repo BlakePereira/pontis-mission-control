@@ -47,12 +47,30 @@ interface Stats {
 const PIPELINE_STAGES = [
   { key: "prospect", label: "Prospect", color: "#52525b" },
   { key: "warm", label: "Warm", color: "#eab308" },
-  { key: "demo_scheduled", label: "Demo Scheduled", color: "#3b82f6" },
-  { key: "demo_done", label: "Demo Done", color: "#8b5cf6" },
-  { key: "negotiating", label: "Negotiating", color: "#f97316" },
+  { key: "negotiating", label: "In Progress", color: "#f97316" },
   { key: "active", label: "Active", color: "#10b981" },
-  { key: "inactive", label: "Inactive", color: "#6b7280" },
-  { key: "lost", label: "Lost", color: "#ef4444" },
+];
+
+const BOARD_STAGE_MAP: Record<string, string | null> = {
+  prospect: "prospect",
+  warm: "warm",
+  demo_scheduled: "negotiating",
+  demo_done: "negotiating",
+  negotiating: "negotiating",
+  active: "active",
+  inactive: null,
+  lost: null,
+};
+
+const PIPELINE_STAGE_ORDER = [
+  "prospect",
+  "warm",
+  "demo_scheduled",
+  "demo_done",
+  "negotiating",
+  "active",
+  "inactive",
+  "lost",
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -152,8 +170,8 @@ function PipelineCard({ partner, onSelect, onMove, onTrack }: {
   onMove: (direction: "next" | "prev") => void;
   onTrack: (tracked: boolean) => void;
 }) {
-  const currentStageIndex = PIPELINE_STAGES.findIndex((s) => s.key === partner.pipeline_status);
-  const canMoveNext = currentStageIndex < PIPELINE_STAGES.length - 1;
+  const currentStageIndex = PIPELINE_STAGE_ORDER.findIndex((s) => s === partner.pipeline_status);
+  const canMoveNext = currentStageIndex >= 0 && currentStageIndex < PIPELINE_STAGE_ORDER.length - 1;
   const canMovePrev = currentStageIndex > 0;
   const signal = getNextActionSignal(partner);
 
@@ -236,7 +254,7 @@ function PipelineCard({ partner, onSelect, onMove, onTrack }: {
           <button
             onClick={(e) => { e.stopPropagation(); onMove("prev"); }}
             className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] bg-[#111] border border-[#2a2a2a] rounded text-[#666] hover:text-white hover:border-[#444] transition-colors"
-            title={`← ${PIPELINE_STAGES[currentStageIndex - 1]?.label}`}
+            title="Move to previous stage"
           >
             <ChevronLeft size={10} />
             Prev
@@ -246,7 +264,7 @@ function PipelineCard({ partner, onSelect, onMove, onTrack }: {
           <button
             onClick={(e) => { e.stopPropagation(); onMove("next"); }}
             className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] bg-[#10b981]/10 border border-[#10b981]/30 rounded text-[#10b981] hover:bg-[#10b981]/20 transition-colors"
-            title={`${PIPELINE_STAGES[currentStageIndex + 1]?.label} →`}
+            title="Move to next stage"
           >
             Next
             <ChevronRight size={10} />
@@ -438,7 +456,18 @@ export default function SalesFunnelClient({ embedded = false }: { embedded?: boo
 
       const res = await fetch(`/api/sales-funnel?${params}`);
       const data = await res.json();
-      setStages(data.stages || {});
+      const rawStages = data.stages || {};
+      const boardStages = Object.fromEntries(
+        PIPELINE_STAGES.map((stage) => [stage.key, [] as Partner[]])
+      ) as Record<string, Partner[]>;
+
+      Object.entries(rawStages).forEach(([stageKey, partners]) => {
+        const boardStage = BOARD_STAGE_MAP[stageKey];
+        if (!boardStage) return;
+        boardStages[boardStage] = boardStages[boardStage].concat(partners as Partner[]);
+      });
+
+      setStages(boardStages);
       setStats(data.stats || { total: 0, activePipeline: 0, won: 0, lost: 0, conversionRate: "0.0%", pipelineValue: 0 });
 
       // Extract unique states and territories
@@ -457,17 +486,17 @@ export default function SalesFunnelClient({ embedded = false }: { embedded?: boo
   }, [fetchData]);
 
   const handleMovePartner = async (partner: Partner, direction: "next" | "prev") => {
-    const currentIndex = PIPELINE_STAGES.findIndex((s) => s.key === partner.pipeline_status);
+    const currentIndex = PIPELINE_STAGE_ORDER.findIndex((s) => s === partner.pipeline_status);
     const targetIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
-    if (targetIndex < 0 || targetIndex >= PIPELINE_STAGES.length) return;
+    if (targetIndex < 0 || targetIndex >= PIPELINE_STAGE_ORDER.length) return;
 
-    const newStatus = PIPELINE_STAGES[targetIndex].key;
+    const newStatus = PIPELINE_STAGE_ORDER[targetIndex];
     const guardedStatuses = ["demo_scheduled", "demo_done", "negotiating", "active"];
     const signal = getNextActionSignal(partner);
 
     if (direction === "next" && guardedStatuses.includes(newStatus) && signal.missingFields.length > 0) {
       const proceed = window.confirm(
-        `This record is missing ${signal.missingFields.join(", ")}. Move to ${PIPELINE_STAGES[targetIndex].label} anyway?`
+        `This record is missing ${signal.missingFields.join(", ")}. Move to ${PIPELINE_STAGE_ORDER[targetIndex]} anyway?`
       );
       if (!proceed) return;
     }
