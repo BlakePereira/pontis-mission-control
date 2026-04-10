@@ -62,16 +62,14 @@ const BOARD_STAGE_MAP: Record<string, string | null> = {
   lost: null,
 };
 
-const PIPELINE_STAGE_ORDER = [
-  "prospect",
-  "warm",
-  "demo_scheduled",
-  "demo_done",
-  "negotiating",
-  "active",
-  "inactive",
-  "lost",
-];
+const BOARD_STAGE_ORDER = ["prospect", "warm", "negotiating", "active"] as const;
+
+const BOARD_STAGE_TO_STATUS: Record<(typeof BOARD_STAGE_ORDER)[number], string> = {
+  prospect: "prospect",
+  warm: "warm",
+  negotiating: "negotiating",
+  active: "active",
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -170,8 +168,9 @@ function PipelineCard({ partner, onSelect, onMove, onTrack }: {
   onMove: (direction: "next" | "prev") => void;
   onTrack: (tracked: boolean) => void;
 }) {
-  const currentStageIndex = PIPELINE_STAGE_ORDER.findIndex((s) => s === partner.pipeline_status);
-  const canMoveNext = currentStageIndex >= 0 && currentStageIndex < PIPELINE_STAGE_ORDER.length - 1;
+  const currentBoardStage = BOARD_STAGE_MAP[partner.pipeline_status] ?? "prospect";
+  const currentStageIndex = BOARD_STAGE_ORDER.findIndex((s) => s === currentBoardStage);
+  const canMoveNext = currentStageIndex >= 0 && currentStageIndex < BOARD_STAGE_ORDER.length - 1;
   const canMovePrev = currentStageIndex > 0;
   const signal = getNextActionSignal(partner);
 
@@ -486,17 +485,18 @@ export default function SalesFunnelClient({ embedded = false }: { embedded?: boo
   }, [fetchData]);
 
   const handleMovePartner = async (partner: Partner, direction: "next" | "prev") => {
-    const currentIndex = PIPELINE_STAGE_ORDER.findIndex((s) => s === partner.pipeline_status);
+    const currentBoardStage = BOARD_STAGE_MAP[partner.pipeline_status] ?? "prospect";
+    const currentIndex = BOARD_STAGE_ORDER.findIndex((s) => s === currentBoardStage);
     const targetIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
-    if (targetIndex < 0 || targetIndex >= PIPELINE_STAGE_ORDER.length) return;
+    if (targetIndex < 0 || targetIndex >= BOARD_STAGE_ORDER.length) return;
 
-    const newStatus = PIPELINE_STAGE_ORDER[targetIndex];
+    const newStatus = BOARD_STAGE_TO_STATUS[BOARD_STAGE_ORDER[targetIndex]];
     const guardedStatuses = ["demo_scheduled", "demo_done", "negotiating", "active"];
     const signal = getNextActionSignal(partner);
 
     if (direction === "next" && guardedStatuses.includes(newStatus) && signal.missingFields.length > 0) {
       const proceed = window.confirm(
-        `This record is missing ${signal.missingFields.join(", ")}. Move to ${PIPELINE_STAGE_ORDER[targetIndex]} anyway?`
+        `This record is missing ${signal.missingFields.join(", ")}. Move to ${BOARD_STAGE_ORDER[targetIndex]} anyway?`
       );
       if (!proceed) return;
     }
