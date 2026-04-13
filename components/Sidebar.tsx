@@ -21,6 +21,7 @@ import {
   Target,
   Plug,
   ClipboardList,
+  Truck,
 } from "lucide-react";
 
 const nav = [
@@ -28,6 +29,7 @@ const nav = [
   { href: "/planning", label: "Planning", icon: Calendar, emoji: "🗓️" },
   { href: "/pontis", label: "Pontis Hub", icon: Building2, emoji: "🏛️" },
   { href: "/crm", label: "CRM", icon: TrendingUp, emoji: "📇" },
+  { href: "/fulfillment", label: "Fulfillment CRM", icon: Truck, emoji: "🚚" },
   { href: "/onboarding", label: "Onboarding Hub", icon: ClipboardList, emoji: "📋" },
   { href: "/partner-map", label: "Partner Map", icon: MapPin, emoji: "🗺️" },
   { href: "/market-intelligence", label: "Market Intelligence", icon: Target, emoji: "🎯" },
