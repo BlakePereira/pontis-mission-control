@@ -288,10 +288,10 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
 
 // ─── AddPartnerModal ──────────────────────────────────────────────────────────
 
-function AddPartnerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (p: Partner) => void }) {
+function AddPartnerModal({ onClose, onSaved, lockedPartnerType = null }: { onClose: () => void; onSaved: (p: Partner) => void; lockedPartnerType?: "monument_company" | "fulfillment_partner" | null }) {
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "", territory: "",
-    phone: "", email: "", website: "", partner_type: "monument_company", pipeline_status: "prospect",
+    phone: "", email: "", website: "", partner_type: lockedPartnerType || "monument_company", pipeline_status: "prospect",
     lead_source: "", notes: "",
   });
   const [saving, setSaving] = useState(false);
@@ -353,11 +353,15 @@ function AddPartnerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <FormInput label="Territory" value={form.territory} onChange={(v) => set("territory", v)} placeholder="e.g. TX, OK, NM" />
 
           <div className="grid grid-cols-2 gap-3">
-            <FormSelect label="Partner Type" value={form.partner_type} onChange={(v) => set("partner_type", v)}
-              options={[
-                { value: "monument_company", label: "Monument Company" },
-                { value: "fulfillment_partner", label: "Fulfillment Partner" },
-              ]} />
+            {lockedPartnerType ? (
+              <FormInput label="Partner Type" value={lockedPartnerType === "monument_company" ? "Monument Company" : "Fulfillment Partner"} onChange={() => {}} />
+            ) : (
+              <FormSelect label="Partner Type" value={form.partner_type} onChange={(v) => set("partner_type", v)}
+                options={[
+                  { value: "monument_company", label: "Monument Company" },
+                  { value: "fulfillment_partner", label: "Fulfillment Partner" },
+                ]} />
+            )}
             <FormSelect label="Pipeline Status" value={form.pipeline_status} onChange={(v) => set("pipeline_status", v)}
               options={PIPELINE_STATUSES.filter((s) => s.key !== "all").map((s) => ({ value: s.key, label: s.label }))} />
           </div>
@@ -1528,7 +1532,7 @@ function AddActionForm({ partnerId, onSaved, onCancel }: {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function PartnersClient({ embedded = false }: { embedded?: boolean }) {
+export default function PartnersClient({ embedded = false, partnerMode = "all" }: { embedded?: boolean; partnerMode?: "all" | "monument_company" | "fulfillment_partner" }) {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1537,7 +1541,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
   const [showAddModal, setShowAddModal] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState("all");
-  const [partnerTypeFilter, setPartnerTypeFilter] = useState("all");
+  const [partnerTypeFilter, setPartnerTypeFilter] = useState(partnerMode === "all" ? "all" : partnerMode);
   const [healthFilter, setHealthFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -1549,14 +1553,18 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
       setError(null);
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("status", statusFilter);
-      if (partnerTypeFilter !== "all") params.set("partnerType", partnerTypeFilter);
+      if (partnerMode !== "all") params.set("partnerType", partnerMode);
+      else if (partnerTypeFilter !== "all") params.set("partnerType", partnerTypeFilter);
       if (healthFilter !== "all") params.set("health", healthFilter);
       if (stateFilter !== "all") params.set("state", stateFilter);
       if (search) params.set("search", search);
 
+      const statsParams = new URLSearchParams();
+      if (partnerMode !== "all") statsParams.set("partnerType", partnerMode);
+
       const [partnersRes, statsRes] = await Promise.all([
         fetch(`/api/partners?${params}`),
-        fetch("/api/partners/stats"),
+        fetch(`/api/partners/stats?${statsParams}`),
       ]);
 
       if (partnersRes.ok) {
@@ -1575,7 +1583,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, partnerTypeFilter, healthFilter, stateFilter, search]);
+  }, [statusFilter, partnerMode, partnerTypeFilter, healthFilter, stateFilter, search]);
 
   useEffect(() => {
     setLoading(true);
@@ -1609,7 +1617,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
       {embedded && (
         <div className="mb-6">
           <h2 className="text-xl font-bold text-white">Accounts</h2>
-          <p className="text-sm text-[#555] mt-1">Tracked partners, contacts, timeline, and account-level follow-up health.</p>
+          <p className="text-sm text-[#555] mt-1">{partnerMode === "monument_company" ? "Tracked monument companies, contacts, timeline, and account-level follow-up health." : "Tracked partners, contacts, timeline, and account-level follow-up health."}</p>
         </div>
       )}
 
@@ -1672,15 +1680,19 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
         {/* Spacer */}
         <div className="w-px h-5 bg-[#2a2a2a] hidden sm:block" />
 
-        {/* Partner type */}
-        <div className="flex items-center gap-1 flex-wrap">
-          {PARTNER_TYPES.map(({ key, label }) => (
-            <FilterPill key={key} label={label} active={partnerTypeFilter === key} onClick={() => setPartnerTypeFilter(key)} />
-          ))}
-        </div>
+        {partnerMode === "all" && (
+          <>
+            {/* Partner type */}
+            <div className="flex items-center gap-1 flex-wrap">
+              {PARTNER_TYPES.map(({ key, label }) => (
+                <FilterPill key={key} label={label} active={partnerTypeFilter === key} onClick={() => setPartnerTypeFilter(key)} />
+              ))}
+            </div>
 
-        {/* Spacer */}
-        <div className="w-px h-5 bg-[#2a2a2a] hidden sm:block" />
+            {/* Spacer */}
+            <div className="w-px h-5 bg-[#2a2a2a] hidden sm:block" />
+          </>
+        )}
 
         {/* Status pills */}
         <div className="flex items-center gap-1 flex-wrap">
@@ -1951,6 +1963,7 @@ export default function PartnersClient({ embedded = false }: { embedded?: boolea
         <AddPartnerModal
           onClose={() => setShowAddModal(false)}
           onSaved={handlePartnerSaved}
+          lockedPartnerType={partnerMode === "all" ? null : partnerMode}
         />
       )}
     </div>

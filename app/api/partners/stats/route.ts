@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -11,16 +11,22 @@ const sbHeaders = {
   "Content-Type": "application/json",
 };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const partnerType = searchParams.get("partnerType");
+    const partnerTypeFilter = partnerType && partnerType !== "all"
+      ? `&partner_type=eq.${encodeURIComponent(partnerType)}`
+      : "";
+
     const [allPartnersRes, activeRes, pendingActionsRes, overdueActionsRes] =
       await Promise.all([
         fetch(
-          `${SUPABASE_URL}/rest/v1/crm_partners?select=id,pipeline_status,last_contact_at`,
+          `${SUPABASE_URL}/rest/v1/crm_partners?select=id,pipeline_status,last_contact_at${partnerTypeFilter}`,
           { headers: sbHeaders }
         ),
         fetch(
-          `${SUPABASE_URL}/rest/v1/crm_partners?select=id&pipeline_status=eq.active`,
+          `${SUPABASE_URL}/rest/v1/crm_partners?select=id&pipeline_status=eq.active${partnerTypeFilter}`,
           { headers: sbHeaders }
         ),
         fetch(

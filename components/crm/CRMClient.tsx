@@ -26,7 +26,7 @@ export default function CRMClient() {
             <div>
               <h1 className="text-3xl font-bold text-white">CRM</h1>
               <p className="text-sm text-[#555] mt-1 max-w-2xl">
-                One place for pipeline, accounts, and action discipline. Partner Map stays separate so the core CRM can stay focused.
+                Monument-company CRM for pipeline, accounts, and action discipline. Fulfillment partners now live in their own separate CRM.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -50,7 +50,7 @@ export default function CRMClient() {
 
         <div className="p-6">
           {activeTab === "pipeline" && <SalesFunnelClient embedded />}
-          {activeTab === "accounts" && <PartnersClient embedded />}
+          {activeTab === "accounts" && <PartnersClient embedded partnerMode="monument_company" />}
           {activeTab === "tasks" && <CRMTasksClient />}
           {activeTab === "analytics" && (
             <div className="rounded-2xl border border-[#2a2a2a] bg-[#111] p-8 max-w-3xl">
