@@ -24,6 +24,14 @@ const sbHeaders = {
   Prefer: "resolution=merge-duplicates,return=minimal",
 };
 
+const PG_INT_MAX = 2147483647;
+
+function toPgIntOrNull(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value > PG_INT_MAX || value < -PG_INT_MAX - 1) return null;
+  return Math.trunc(value);
+}
+
 function inferKindFromContent(parsedLines) {
   // Strategy: scan message content for structural clues OpenClaw embeds
   // 1. Group sessions: user messages start with "[Telegram <GroupName>"
@@ -244,7 +252,8 @@ async function main() {
     startedAt = new Date(minTs);
     lastActiveAt = new Date(maxTs);
 
-    const durationMs = timestamps.length > 1 ? maxTs - minTs : null;
+    const rawDurationMs = timestamps.length > 1 ? maxTs - minTs : null;
+    const durationMs = toPgIntOrNull(rawDurationMs);
     const status = now - maxTs < ACTIVE_THRESHOLD_MS ? "active" : "completed";
 
     // Determine session_key: use session meta id/key if available, otherwise session_id
@@ -261,7 +270,7 @@ async function main() {
       display_name: displayName || null,
       channel: channel || null,
       model: lastModel || null,
-      total_tokens: totalTokens,
+      total_tokens: toPgIntOrNull(totalTokens),
       last_message: lastAssistantMessage || null,
       last_role: lastAssistantMessage ? "assistant" : null,
       status,
@@ -273,14 +282,26 @@ async function main() {
     });
   }
 
+  const dedupedRows = Array.from(
+    rows
+      .reduce((map, row) => {
+        const existing = map.get(row.session_key);
+        if (!existing || new Date(row.last_active_at).getTime() >= new Date(existing.last_active_at).getTime()) {
+          map.set(row.session_key, row);
+        }
+        return map;
+      }, new Map())
+      .values()
+  );
+
   // Upsert in batches of 100
   let synced = 0;
   let active = 0;
   let completed = 0;
 
   const BATCH_SIZE = 100;
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < dedupedRows.length; i += BATCH_SIZE) {
+    const batch = dedupedRows.slice(i, i + BATCH_SIZE);
     const result = await upsertSessions(batch);
     if (result.ok) {
       synced += batch.length;
@@ -292,7 +313,7 @@ async function main() {
   }
 
   console.log(
-    `Synced ${synced} sessions (${active} active, ${completed} completed) from ${jsonlFiles.length} files`
+    `Synced ${synced} sessions (${active} active, ${completed} completed) from ${jsonlFiles.length} files (${dedupedRows.length} unique session keys)`
   );
 }
 
