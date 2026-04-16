@@ -24,13 +24,11 @@ const sbHeaders = {
   Prefer: "resolution=merge-duplicates,return=minimal",
 };
 
-const PG_INT_MAX = 2147483647;
-
-function toPgIntOrNull(value) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  if (value > PG_INT_MAX || value < -PG_INT_MAX - 1) return null;
-  return Math.trunc(value);
-}
+// No longer needed after migration to bigint for duration_ms and total_tokens
+// function toPgIntOrNull(value) {
+//   if (typeof value !== "number" || !Number.isFinite(value)) return null;
+//   return Math.trunc(value);
+// }
 
 function inferKindFromContent(parsedLines) {
   // Strategy: scan message content for structural clues OpenClaw embeds
@@ -252,8 +250,7 @@ async function main() {
     startedAt = new Date(minTs);
     lastActiveAt = new Date(maxTs);
 
-    const rawDurationMs = timestamps.length > 1 ? maxTs - minTs : null;
-    const durationMs = toPgIntOrNull(rawDurationMs);
+    const durationMs = timestamps.length > 1 ? Math.trunc(maxTs - minTs) : null;
     const status = now - maxTs < ACTIVE_THRESHOLD_MS ? "active" : "completed";
 
     // Determine session_key: use session meta id/key if available, otherwise session_id
@@ -270,7 +267,7 @@ async function main() {
       display_name: displayName || null,
       channel: channel || null,
       model: lastModel || null,
-      total_tokens: toPgIntOrNull(totalTokens),
+      total_tokens: totalTokens > 0 ? Math.trunc(totalTokens) : null,
       last_message: lastAssistantMessage || null,
       last_role: lastAssistantMessage ? "assistant" : null,
       status,
