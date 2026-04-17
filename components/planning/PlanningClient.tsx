@@ -148,6 +148,23 @@ export default function PlanningClient() {
   const [loading, setLoading] = useState(true);
   const [chatCollapsed, setChatCollapsed] = useState(false);
 
+  // Data staleness detection
+  const latestDailyTask = useMemo(() => {
+    if (daily.length === 0) return null;
+    return daily.reduce((latest, task) => 
+      task.date > latest.date ? task : latest
+    );
+  }, [daily]);
+
+  const daysSinceLastTask = useMemo(() => {
+    if (!latestDailyTask) return Infinity;
+    const now = new Date();
+    const lastTaskDate = new Date(latestDailyTask.date + "T00:00:00");
+    return Math.floor((now.getTime() - lastTaskDate.getTime()) / 86400000);
+  }, [latestDailyTask]);
+
+  const isStale = daysSinceLastTask > 7;
+
   // Weekly tab state
   const [expandedWeekIds, setExpandedWeekIds] = useState<Record<string, boolean>>({});
   const [editingWeekIds, setEditingWeekIds] = useState<Record<string, boolean>>({});
@@ -379,6 +396,27 @@ export default function PlanningClient() {
               onToggleTask={toggleTaskStatus}
               onAskClara={() => setChatCollapsed(false)}
             />
+
+            {/* Data Staleness Warning */}
+            {isStale && (
+              <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center mt-0.5">
+                    <span className="text-amber-400 text-xs font-bold">⚠</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-amber-400 text-sm font-semibold">
+                      Planning data is {daysSinceLastTask === Infinity ? "missing" : `${daysSinceLastTask} days stale`}
+                    </p>
+                    <p className="text-amber-300/70 text-xs mt-1">
+                      {latestDailyTask 
+                        ? `Last daily task: ${latestDailyTask.date}. Check if Daily Planning Sync cron is running.`
+                        : "No daily tasks found. Daily Planning Sync may not be running."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <WeekSummary
               week={thisWeek}
